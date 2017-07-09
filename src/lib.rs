@@ -8,3 +8,4 @@ extern crate vcell;
 extern crate cortex_m;
 extern crate static_ref;
 extern crate volatile_register;
+extern crate bare_metal;
