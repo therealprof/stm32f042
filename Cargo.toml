@@ -1,0 +1,18 @@
+[package]
+name = "stm32f042"
+categories = ["embedded", "no-std"]
+keywords = ["arm", "cortex-m", "template"]
+version = "0.1.0"
+authors = ["Daniel Egger <daniel@eggers-club.de>"]
+
+[dependencies]
+cortex-m = "0.2.7"
+cortex-m-rt = "0.2.3"
+vcell = "0.1.0"
+volatile-register = "0.2.0"
+static-ref = "0.1.0"
+
+[profile.release]
+lto = true
+debug = true
+
