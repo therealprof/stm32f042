@@ -5,12 +5,19 @@ keywords = ["arm", "cortex-m", "template"]
 version = "0.2.0"
 authors = ["Daniel Egger <daniel@eggers-club.de>"]
 
+[features]
+default = ["rt"]
+rt = []
+
+
 [dependencies]
-cortex-m = "0.3.0"
 vcell = "0.1.0"
 volatile-register = "0.2.0"
 static-ref = "0.1.0"
 bare-metal = "0.1.0"
+
+[dependencies.cortex-m]
+version = "0.3.0"
 
 [dependencies.cortex-m-rt]
 features = ["abort-on-panic"]
