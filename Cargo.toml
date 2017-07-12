@@ -23,7 +23,11 @@ version = "0.3.0"
 features = ["abort-on-panic"]
 version = "0.3.2"
 
-[profile.release]
+[profile.dev]
 lto = true
 debug = true
 
+
+[profile.release]
+lto = true
+debug = true
