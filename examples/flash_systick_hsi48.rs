@@ -20,6 +20,7 @@ fn main() {
         let rcc = RCC.borrow(cs);
         let gpiob = GPIOB.borrow(cs);
         let syst = SYST.borrow(cs);
+        let flash = FLASH.borrow(cs);
 
         /* Fire up HSI48 clock */
         rcc.cr2.write(|w| w.hsi48on().set_bit());
@@ -30,6 +31,19 @@ fn main() {
                 break;
             }
         }
+
+        /* Enable flash prefetch */
+        flash.acr.write(|w| w.prftbe().set_bit());
+
+        /* Wait for flash prefetch to become enabled */
+        loop {
+            if flash.acr.read().prftbs().bit() == true {
+                break;
+            }
+        }
+
+        /* Set up flash waitstate for the higher frequency */
+        flash.acr.write(|w| unsafe { w.latency().bits(1) });
 
         /* Make HSI48 clock the system clock */
         unsafe { rcc.cfgr.write(|w| w.sw().bits(3)) };
