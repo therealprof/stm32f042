@@ -27,7 +27,7 @@ fn main() {
 
         /* Wait for HSI48 clock to become ready */
         loop {
-            if rcc.cr2.read().hsi48rdy().bit() == true {
+            if rcc.cr2.read().hsi48rdy().bit() {
                 break;
             }
         }
@@ -37,7 +37,7 @@ fn main() {
 
         /* Wait for flash prefetch to become enabled */
         loop {
-            if flash.acr.read().prftbs().bit() == true {
+            if flash.acr.read().prftbs().bit() {
                 break;
             }
         }
