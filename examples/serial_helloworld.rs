@@ -23,6 +23,9 @@ fn main() {
         let flash = FLASH.borrow(cs);
         let usart1 = USART1.borrow(cs);
 
+        /* Enable clock for SYSCFG, else everything will behave funky! */
+        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+
         /* Fire up HSI48 clock */
         rcc.cr2.write(|w| w.hsi48on().set_bit());
 
@@ -87,7 +90,7 @@ fn main() {
         syst.set_clock_source(SystClkSource::External);
 
         /* Set reload value, i.e. timer delay (== 1s) */
-        syst.set_reload(6_000_000);
+        syst.set_reload(6_000_000 - 1);
 
         /* Start counter */
         syst.enable_counter();

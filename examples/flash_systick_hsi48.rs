@@ -22,6 +22,9 @@ fn main() {
         let syst = SYST.borrow(cs);
         let flash = FLASH.borrow(cs);
 
+        /* Enable clock for SYSCFG, else everything will behave funky! */
+        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+
         /* Fire up HSI48 clock */
         rcc.cr2.write(|w| w.hsi48on().set_bit());
 

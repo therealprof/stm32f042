@@ -21,20 +21,22 @@ fn main() {
         let gpiob = GPIOB.borrow(cs);
         let syst = SYST.borrow(cs);
 
-        // Enable clock for GPIO Port B
+        /* Enable clock for SYSCFG, else everything will behave funky! */
+        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+
+        /* Enable clock for GPIO Port B */
         rcc.ahbenr.modify(|_, w| w.iopben().set_bit());
 
-        // (Re-)configure PB1 as output
+        /* (Re-)configure PB1 as output */
         gpiob.moder.modify(|_, w| unsafe { w.moder1().bits(1) });
 
-
-        // Initialise SysTick counter with a defined value
+        /* Initialise SysTick counter with a defined value */
         unsafe { syst.cvr.write(1) };
 
-        // Set source for SysTick counter, here full operating frequency (== 8MHz)
+        /* Set source for SysTick counter, here full operating frequency (== 8MHz) */
         syst.set_clock_source(SystClkSource::Core);
 
-        // Set reload value, i.e. timer delay (== 128ms)
+        /* Set reload value, i.e. timer delay (== 128ms) */
         syst.set_reload(1_000_000);
 
         /* Start counter */
