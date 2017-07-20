@@ -74,51 +74,35 @@ exception!(SYS_TICK, hello_world, locals: {
 });
 
 
-/* Little helper function to print individual character to USART1 */
-fn printc(cs: &cortex_m::interrupt::CriticalSection, c: char) {
-    let usart1 = USART1.borrow(cs);
+struct Buffer<'a> {
+    cs: &'a cortex_m::interrupt::CriticalSection,
+}
 
-    /* Wait until the USART is clear to send */
-    while usart1.isr.read().txe().bit_is_clear() {}
 
-    /* Write the current character to the output register */
-    usart1.tdr.modify(|_, w| unsafe { w.bits(c as u32) });
+impl<'a> core::fmt::Write for Buffer<'a> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let usart1 = USART1.borrow(self.cs);
+        for c in s.as_bytes() {
+            /* Wait until the USART is clear to send */
+            while usart1.isr.read().txe().bit_is_clear() {}
+
+            /* Write the current character to the output register */
+            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
+        }
+        Ok(())
+    }
 }
 
 
 fn hello_world(l: &mut SYS_TICK::Locals) {
-    /* The string we want to print over serial */
-    let hello = &"Hello World! The count is: 0x";
-    let end = &"\n\r";
-
     l.count += 1;
+
+    use core::fmt::Write;
 
     /* Enter critical section */
     cortex_m::interrupt::free(|cs| {
-        /* Iterate over all characters in the hello world string */
-        for c in hello.chars() {
-            printc(cs, c);
-        }
-
-        /* Format digits as hexadecimal number */
-        let mut temp = l.count;
-        for _ in 0..8 {
-            /* Write the current character to the output register */
-            let c = (temp >> 28) as u8;
-            printc(
-                cs,
-                match c {
-                    0...9 => c + 48,
-                    10...15 => c + 55,
-                    _ => 88,
-                } as char,
-            );
-            temp <<= 4;
-        }
-
-        /* Print line end and carriage return */
-        for c in end.chars() {
-            printc(cs, c);
-        }
+        let mut output = Buffer { cs };
+        /* Please be aware that while comfortable, this is a really heavyweight operation! */
+        writeln!(&mut output, "Hello World! The count is: {:#x}", l.count).unwrap();
     });
 }
