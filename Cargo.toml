@@ -2,13 +2,12 @@
 name = "stm32f042"
 categories = ["embedded", "no-std"]
 keywords = ["arm", "cortex-m", "template"]
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Daniel Egger <daniel@eggers-club.de>"]
 
 [features]
 default = ["rt"]
 rt = []
-
 
 [dependencies]
 vcell = "0.1.0"
