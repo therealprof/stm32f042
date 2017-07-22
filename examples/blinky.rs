@@ -2,12 +2,10 @@
 #![no_std]
 
 extern crate cortex_m;
-#[macro_use(exception)]
 extern crate cortex_m_rt;
 extern crate stm32f042;
 
 use stm32f042::{GPIOB, RCC};
-use cortex_m::asm;
 use cortex_m::interrupt;
 
 fn main() {
@@ -35,20 +33,4 @@ fn main() {
             }
         }
     });
-}
-
-
-exception!(HARD_FAULT, handler);
-fn handler() {
-    asm::bkpt()
-}
-
-
-#[allow(dead_code)]
-#[used]
-#[link_section = ".vector_table.interrupts"]
-static INTERRUPTS: [extern "C" fn(); 128] = [default_handler; 128];
-
-extern "C" fn default_handler() {
-    asm::bkpt();
 }
