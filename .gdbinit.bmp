@@ -1,0 +1,17 @@
+# GDB init function for use with a Black Magic Probe
+
+set mem inaccessible-by-default off
+
+# Enter the device name of your BMP here, note use the "cu" device instead of
+# the "tty" device on a Mac
+target extended-remote /dev/cu.usbmodem7AB89DB1
+
+monitor swdp_scan
+mon connect_srst disable
+attach 1
+
+# Entable this to automatically load the binary into the target
+# load
+
+# Enable this to automatically single step the new binary
+# step
