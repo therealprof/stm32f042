@@ -23,22 +23,23 @@ fn main() {
         let syst = SYST.borrow(cs);
         let usart1 = USART1.borrow(cs);
 
-        /* Enable clock for SYSCFG, else everything will behave funky! */
-        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+        /* Enable clock for SYSCFG and USART */
+        rcc.apb2enr.modify(|_, w| {
+            w.syscfgen().set_bit().usart1en().set_bit()
+        });
 
         /* Enable clock for GPIO Port A */
         rcc.ahbenr.modify(|_, w| w.iopaen().set_bit());
 
         /* Set alternate function 1 to to enable USART RX/TX */
-        gpioa.moder.modify(|_, w| unsafe { w.moder9().bits(2) });
-        gpioa.moder.modify(|_, w| unsafe { w.moder10().bits(2) });
+        gpioa.moder.modify(|_, w| unsafe {
+            w.moder9().bits(2).moder10().bits(2)
+        });
 
         /* Set AF1 for pin 9/10 to enable USART RX/TX */
-        gpioa.afrh.modify(|_, w| unsafe { w.afrh9().bits(1) });
-        gpioa.afrh.modify(|_, w| unsafe { w.afrh10().bits(1) });
-
-        /* Enable USART clock */
-        rcc.apb2enr.modify(|_, w| w.usart1en().set_bit());
+        gpioa.afrh.modify(|_, w| unsafe {
+            w.afrh9().bits(1).afrh10().bits(1)
+        });
 
         /* Set baudrate to 115200 @8MHz */
         usart1.brr.write(|w| unsafe { w.bits(0x045) });

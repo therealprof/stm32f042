@@ -11,7 +11,7 @@ extern crate volatile_register;
 
 use stm32f042::*;
 
-use self::{RCC};
+use self::RCC;
 use core::fmt::Write;
 use stm32f042::Interrupt;
 
@@ -24,28 +24,28 @@ fn main() {
         let usart1 = stm32f042::USART1.borrow(cs);
         let nvic = NVIC.borrow(cs);
 
-        /* Enable clock for SYSCFG, else everything will behave funky! */
-        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+        /* Enable clock for SYSCFG and USART */
+        rcc.apb2enr.modify(|_, w| {
+            w.syscfgen().set_bit().usart1en().set_bit()
+        });
 
-        /* Enable clock for GPIO Port A */
-        rcc.ahbenr.modify(|_, w| w.iopaen().set_bit());
-
-        /* Enable clock for GPIO Port B */
-        rcc.ahbenr.modify(|_, w| w.iopben().set_bit());
+        /* Enable clock for GPIO Port A and B */
+        rcc.ahbenr.modify(
+            |_, w| w.iopaen().set_bit().iopben().set_bit(),
+        );
 
         /* (Re-)configure PB1 as output */
         gpiob.moder.modify(|_, w| unsafe { w.moder1().bits(1) });
 
         /* Set alternate function 1 to to enable USART RX/TX */
-        gpioa.moder.modify(|_, w| unsafe { w.moder9().bits(2) });
-        gpioa.moder.modify(|_, w| unsafe { w.moder10().bits(2) });
+        gpioa.moder.modify(|_, w| unsafe {
+            w.moder9().bits(2).moder10().bits(2)
+        });
 
         /* Set AF1 for pin 9/10 to enable USART RX/TX */
-        gpioa.afrh.modify(|_, w| unsafe { w.afrh9().bits(1) });
-        gpioa.afrh.modify(|_, w| unsafe { w.afrh10().bits(1) });
-
-        /* Enable USART clock */
-        rcc.apb2enr.modify(|_, w| w.usart1en().set_bit());
+        gpioa.afrh.modify(|_, w| unsafe {
+            w.afrh9().bits(1).afrh10().bits(1)
+        });
 
         /* Set baudrate to 115200 @8MHz */
         usart1.brr.write(|w| unsafe { w.bits(0x045) });
@@ -133,4 +133,3 @@ fn echo_n_blink() {
         gpiob.brr.write(|w| w.br1().set_bit());
     });
 }
-
