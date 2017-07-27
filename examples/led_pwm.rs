@@ -118,7 +118,7 @@ fn main() {
         nvic.clear_pending(Interrupt::USART1);
 
         /* Output a nice message */
-        Write::write_str(&mut Buffer { cs }, "\r\nLED PWM demo: connect RGB LED to PB1, PB2, PB3.\r\nEnter RGB value in hex as RRGGBB\r\nEnter 'o' for individual channel dimming demo\r\nEnter 'p' for all channel PWM dimming demo\r\nAny other key will reset values\r\n").unwrap();
+        Write::write_str(&mut Buffer { cs }, "\r\nLED PWM demo: connect RGB LED to PA1, PA2, PA3.\r\nEnter RGB value in hex as RRGGBB\r\nEnter 'o' for individual channel dimming demo\r\nEnter 'p' for all channel PWM dimming demo\r\nAny other key will reset values\r\n").unwrap();
     });
 }
 
