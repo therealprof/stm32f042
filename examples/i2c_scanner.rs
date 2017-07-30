@@ -192,7 +192,7 @@ fn scan_i2c() {
             /* Wait while someone else is using the I2C bus, just to be on the sure side */
             while i2c.cr2.read().start().bit_is_set() {}
 
-            /* Set up current address, we're trying a "read" command and not going to set anything
+            /* Set up current address, we're trying a "write" command and not going to set anything
              * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
             i2c.cr2.modify(|_, w| unsafe {
                 w.sadd1()
@@ -200,7 +200,7 @@ fn scan_i2c() {
                     .nbytes()
                     .bits(0)
                     .rd_wrn()
-                    .set_bit()
+                    .clear_bit()
                     .autoend()
                     .set_bit()
             });
@@ -211,8 +211,9 @@ fn scan_i2c() {
             /* Wait until the transmit buffer is empty and there hasn't been either a NACK or STOP
              * being received */
             while i2c.isr.read().txis().bit_is_clear() {
-                if i2c.isr.read().nackf().bit_is_set() ||
-                    i2c.isr.read().stopf().bit_is_set() { break }
+                if i2c.isr.read().nackf().bit_is_set() || i2c.isr.read().stopf().bit_is_set() {
+                    break;
+                }
             }
 
             /* If we received a NACK there's no device on the tried address */
