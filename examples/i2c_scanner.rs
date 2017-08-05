@@ -74,7 +74,7 @@ fn main() {
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
         /* Enable I2C signal generator, and configure I2C for 400KHz full speed */
-        i2c.timingr.write(|w| unsafe { w.bits(0x00100209) });
+        i2c.timingr.write(|w| unsafe { w.bits(0x0010_0209) });
 
         /* Set alternate function 1 to to enable USART RX/TX */
         gpioa.moder.modify(|_, w| unsafe {
@@ -111,8 +111,8 @@ fn main() {
 
 
 /* Define an interrupt handler, i.e. function to call when interrupt occurs. Here if we receive a
- * character from the USART well call the handler to convert the values to PWM changes */
-interrupt!(USART1, scan_i2c);
+ * character from the USART well call the handler */
+interrupt!(USART1, usart_receive);
 
 
 struct Buffer<'a> {
@@ -168,7 +168,7 @@ fn read_char(usart1: &stm32f042::USART1) -> u8 {
 
 /* The IRQ handler triggered by a received character in USART buffer, this will conduct our I2C
  * scan when we receive anything */
-fn scan_i2c() {
+fn usart_receive() {
     cortex_m::interrupt::free(|cs| {
         let usart1 = stm32f042::USART1.borrow(cs);
         let i2c = I2C1.borrow(cs);
