@@ -294,13 +294,16 @@ fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
 
         /* Wait until the transmit buffer is empty and there hasn't been either a NACK or STOP
          * being received */
-        while i2c.isr.read().txis().bit_is_clear() && i2c.isr.read().nackf().bit_is_clear() &&
-            i2c.isr.read().stopf().bit_is_clear() &&
-            i2c.isr.read().tc().bit_is_clear()
+        let mut isr;
+        while {
+            isr = i2c.isr.read();
+            isr.txis().bit_is_clear() && isr.nackf().bit_is_clear() &&
+                isr.stopf().bit_is_clear() && isr.tc().bit_is_clear()
+        }
         {}
 
         /* If we received a NACK, then this is an error */
-        if i2c.isr.read().nackf().bit_is_set() {
+        if isr.nackf().bit_is_set() {
             /* Disable the I2C port. */
             i2c.cr1.modify(|_, w| w.pe().clear_bit());
             return None;
