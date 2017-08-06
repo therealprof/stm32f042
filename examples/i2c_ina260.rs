@@ -259,12 +259,69 @@ fn read_i2c_ina260_voltage(i2c: &I2C1, address: u8) -> u32 {
 }
 
 
+fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
+    while i2c.isr.read().busy().bit_is_set() {}
+    while i2c.cr2.read().start().bit_is_set() {}
+
+    /* Enable the I2C processing */
+    i2c.cr1.modify(|_, w| w.pe().set_bit());
+
+    /* Wait while busy, just to be on the sure side */
+    while i2c.isr.read().busy().bit_is_set() {}
+
+    /* Wait while someone else is using the I2C bus, just to be on the sure side */
+    while i2c.cr2.read().start().bit_is_set() {}
+
+    /* Set up current address, we're trying a "read" command and not going to set anything
+     * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
+    i2c.cr2.modify(|_, w| unsafe {
+        w.sadd1()
+            .bits(addr)
+            .nbytes()
+            .bits((data.len()) as u8)
+            .rd_wrn()
+            .clear_bit()
+            .autoend()
+            .set_bit()
+    });
+
+    /* Send a START condition */
+    i2c.cr2.modify(|_, w| w.start().set_bit());
+
+    for c in data {
+        /* Push out a byte of data */
+        i2c.txdr.write(|w| unsafe { w.bits(*c as u32) });
+
+        /* Wait until the transmit buffer is empty and there hasn't been either a NACK or STOP
+         * being received */
+        while i2c.isr.read().txis().bit_is_clear() && i2c.isr.read().nackf().bit_is_clear() &&
+            i2c.isr.read().stopf().bit_is_clear() &&
+            i2c.isr.read().tc().bit_is_clear()
+        {}
+
+        /* If we received a NACK, then this is an error */
+        if i2c.isr.read().nackf().bit_is_set() {
+            /* Disable the I2C port. */
+            i2c.cr1.modify(|_, w| w.pe().clear_bit());
+            return None;
+        }
+    }
+
+    /* Disable the I2C port. */
+    i2c.cr1.modify(|_, w| w.pe().clear_bit());
+
+    /* Fallthrough is success */
+    Some(())
+}
+
+
 /* The IRQ handler triggered by a received character in USART buffer, this will conduct our I2C
  * reads when we receive anything */
 fn usart_receive() {
     cortex_m::interrupt::free(|cs| {
         let usart1 = stm32f042::USART1.borrow(cs);
         let i2c = I2C1.borrow(cs);
+        let mut buf = Buffer { cs };
 
         /* We assume the INA260 is configured to be at I2C address 0x41 */
         let address = 0x41;
@@ -273,25 +330,33 @@ fn usart_receive() {
         read_char(usart1);
 
         write!(
-            Buffer { cs },
-            "Configuration is: 0x{:x}\r\n",
+            buf,
+            "Configuration before setting averaging is: 0x{:x}\r\n",
+            read_i2c_ina260_config(i2c, address)
+        ).unwrap();
+
+        write_data(i2c, address, &[0x00, 0x69, 0x27]);
+
+        write!(
+            buf,
+            "Configuration after is: 0x{:x}\r\n",
             read_i2c_ina260_config(i2c, address)
         ).unwrap();
 
         write!(
-            Buffer { cs },
+            buf,
             "Current is: {}µA\r\n",
             read_i2c_ina260_current(i2c, address)
         ).unwrap();
 
         write!(
-            Buffer { cs },
+            buf,
             "Voltage is: {}µV\r\n",
             read_i2c_ina260_voltage(i2c, address)
         ).unwrap();
 
         Write::write_str(
-            &mut Buffer { cs },
+            &mut buf,
             "\r\nEnter any character to obtain values again.\r\n",
         ).unwrap();
     });
