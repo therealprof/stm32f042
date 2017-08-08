@@ -55,10 +55,14 @@ fn main() {
             w.iopaen().set_bit().iopben().set_bit().iopfen().set_bit()
         });
 
-        /* Enable clock for TIM2 and I2C1 */
+        /* Enable clock for I2C1 */
         rcc.apb1enr.modify(
-            |_, w| w.tim2en().set_bit().i2c1en().set_bit(),
+            |_, w| w.i2c1en().set_bit(),
         );
+
+        /* Reset I2C1 */
+        rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
+        rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
 
         /* (Re-)configure PB1, PB2 and PB3 as output */
         gpioa.moder.modify(|_, w| unsafe {
