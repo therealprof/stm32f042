@@ -24,11 +24,11 @@ fn main() {
 
         loop {
             /* Turn PB1 on a million times in a row */
-            for _ in 0..1000000 {
+            for _ in 0..1_000_000 {
                 gpiob.bsrr.write(|w| w.bs1().set_bit());
             }
             /* Then turn PB1 off a million times in a row */
-            for _ in 0..1000000 {
+            for _ in 0..1_000_000 {
                 gpiob.brr.write(|w| w.br1().set_bit());
             }
         }

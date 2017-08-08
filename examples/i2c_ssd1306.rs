@@ -94,7 +94,7 @@ fn main() {
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
         /* Enable I2C signal generator, and configure I2C for 400KHz full speed */
-        i2c.timingr.write(|w| unsafe { w.bits(0x00100209) });
+        i2c.timingr.write(|w| unsafe { w.bits(0x0010_0209) });
 
         /* Enable the I2C processing */
         i2c.cr1.modify(|_, w| w.pe().set_bit());
@@ -271,7 +271,7 @@ impl<'a> core::fmt::Write for Buffer2<'a> {
         for c in s.as_bytes() {
             let data = [
                 SSD1306_BYTE_DATA,
-                FONT_7X7[(*c as usize - 0x20) * 7 + 0],
+                FONT_7X7[(*c as usize - 0x20) * 7],
                 FONT_7X7[(*c as usize - 0x20) * 7 + 1],
                 FONT_7X7[(*c as usize - 0x20) * 7 + 2],
                 FONT_7X7[(*c as usize - 0x20) * 7 + 3],

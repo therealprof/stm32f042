@@ -125,7 +125,7 @@ fn echo_n_blink() {
         }
 
         /* Turn PB1 on for a bit */
-        for _ in 0..50000 {
+        for _ in 0..50_000 {
             gpiob.bsrr.write(|w| w.bs1().set_bit());
         }
 
