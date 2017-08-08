@@ -56,9 +56,7 @@ fn main() {
         });
 
         /* Enable clock for I2C1 */
-        rcc.apb1enr.modify(
-            |_, w| w.i2c1en().set_bit(),
-        );
+        rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
 
         /* Reset I2C1 */
         rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
@@ -325,15 +323,6 @@ fn read_char(usart1: &stm32f042::USART1) -> u8 {
 
 
 fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
-    while i2c.isr.read().busy().bit_is_set() {}
-    while i2c.cr2.read().start().bit_is_set() {}
-
-    /* Enable the I2C processing */
-    i2c.cr1.modify(|_, w| w.pe().set_bit());
-
-    /* Wait while busy, just to be on the sure side */
-    while i2c.isr.read().busy().bit_is_set() {}
-
     /* Wait while someone else is using the I2C bus, just to be on the sure side */
     while i2c.cr2.read().start().bit_is_set() {}
 
@@ -369,13 +358,13 @@ fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
 
         /* If we received a NACK, then this is an error */
         if isr.nackf().bit_is_set() {
-            i2c.cr1.modify(|_, w| w.pe().clear_bit());
+            i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
             return None;
         }
     }
 
     /* Fallthrough is success */
-    i2c.cr1.modify(|_, w| w.pe().clear_bit());
+    i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
     Some(())
 }
 
