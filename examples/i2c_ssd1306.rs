@@ -126,6 +126,14 @@ fn main() {
         unsafe { nvic.set_priority(Interrupt::USART1, 1) };
         nvic.clear_pending(Interrupt::USART1);
 
+        /* Give display time to settle */
+        for _ in 0..500_000 {
+            cortex_m::asm::nop()
+        }
+
+        /* Initialise SSD1306 display */
+        ssd1306_init(i2c);
+
         /* Output a nice message */
         Write::write_str(
             &mut Buffer { cs },
@@ -136,7 +144,9 @@ fn main() {
 
 
 /* Define an interrupt handler, i.e. function to call when interrupt occurs. */
-interrupt!(USART1, usart_receive);
+interrupt!(USART1, usart_receive, locals: {
+    count: u32 = 0;
+});
 
 
 struct Buffer<'a> {
@@ -446,23 +456,21 @@ fn ssd1306_pos(i2c: &I2C1, x: u8, y: u8) {
 
 /* The IRQ handler triggered by a received character in USART buffer, this will send out something
  * to the I2C display */
-fn usart_receive() {
+fn usart_receive(l: &mut USART1::Locals) {
     cortex_m::interrupt::free(|cs| {
         let usart1 = stm32f042::USART1.borrow(cs);
         let i2c = I2C1.borrow(cs);
 
+        l.count += 1;
+
         /* Read the character that triggered the interrupt from the USART */
         read_char(usart1);
-
-        /* Initialise SSD1306 display */
-        ssd1306_init(i2c);
 
         ssd1306_pos(i2c, 0, 0);
         Write::write_str(&mut Buffer2 { cs }, "Hello world!    ").unwrap();
         Write::write_str(&mut Buffer2 { cs }, "0123456789012345").unwrap();
 
         ssd1306_pos(i2c, 0, 3);
-        Write::write_str(&mut Buffer2 { cs }, "Hello world!    ").unwrap();
-        Write::write_str(&mut Buffer2 { cs }, "0123456789012345").unwrap();
+        write!(&mut Buffer2 { cs }, "{}", l.count).unwrap();
     });
 }
