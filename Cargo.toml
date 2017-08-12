@@ -29,3 +29,4 @@ debug = true
 [profile.release]
 lto = true
 debug = true
+opt-level = "s"
