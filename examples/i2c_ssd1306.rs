@@ -2,6 +2,7 @@
 #![feature(const_fn)]
 #![no_std]
 
+extern crate numtoa;
 extern crate cortex_m;
 extern crate cortex_m_rt;
 
@@ -12,6 +13,7 @@ extern crate volatile_register;
 use stm32f042::*;
 use core::fmt::Write;
 use stm32f042::Interrupt;
+use numtoa::NumToA;
 
 
 const SSD1306_BYTE_CMD: u8 = 0x00;
@@ -134,10 +136,14 @@ fn main() {
         /* Initialise SSD1306 display */
         ssd1306_init(i2c);
 
+        /* Print a message on the display */
+        ssd1306_pos(i2c, 0, 0);
+        ssd1306_print_bytes(i2c, &"Send key over serial for action".as_bytes());
+
         /* Output a nice message */
         Write::write_str(
             &mut Buffer { cs },
-            "\r\nWelcome to the SSD1306 example. Enter any character to print something on the display.\r\n",
+            "\r\nWelcome to the SSD1306 example. Enter any character to update display.\r\n",
         ).unwrap();
     });
 }
@@ -169,12 +175,7 @@ impl<'a> core::fmt::Write for Buffer<'a> {
 }
 
 
-struct Buffer2<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-fn i2c_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
+fn ssd1306_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
     /* A 7x7 font shamelessly borrowed from https://github.com/techninja/MarioChron/ */
     const FONT_7X7: [u8; 672] = [
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,// (space)
@@ -289,17 +290,6 @@ fn i2c_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
         ];
 
         write_data(i2c, 0x3C, &data);
-    }
-}
-
-
-/* Render the given string using the avobe character table onto the current position */
-impl<'a> core::fmt::Write for Buffer2<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let i2c = stm32f042::I2C1.borrow(self.cs);
-
-        i2c_print_bytes(i2c, s.as_bytes());
-        Ok(())
     }
 }
 
@@ -469,11 +459,14 @@ fn usart_receive(l: &mut USART1::Locals) {
         /* Read the character that triggered the interrupt from the USART */
         read_char(usart1);
 
-        ssd1306_pos(i2c, 0, 0);
-        let _ = Write::write_str(&mut Buffer2 { cs }, "Hello world!    ");
-        let _ = Write::write_str(&mut Buffer2 { cs }, "0123456789012345");
+        /* Convert counter into a string */
+        let mut buffer = [0u8; 10];
+        let count_start = l.count.numtoa(10, &mut buffer);
 
+        /* Position cursor in third row */
         ssd1306_pos(i2c, 0, 3);
-        let _ = write!(&mut Buffer2 { cs }, "{}", l.count);
+
+        /* Render count on display */
+        ssd1306_print_bytes(i2c, &buffer[count_start..]);
     });
 }
