@@ -11,5 +11,6 @@ extern crate bare_metal;
 extern crate vcell;
 
 mod svd;
+pub mod peripherals;
 
 pub use svd::*;
