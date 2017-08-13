@@ -277,18 +277,17 @@ fn ssd1306_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
     ];
 
     for c in bytes {
-        let data = [
-            SSD1306_BYTE_DATA,
-            FONT_7X7[(*c as usize - 0x20) * 7],
-            FONT_7X7[(*c as usize - 0x20) * 7 + 1],
-            FONT_7X7[(*c as usize - 0x20) * 7 + 2],
-            FONT_7X7[(*c as usize - 0x20) * 7 + 3],
-            FONT_7X7[(*c as usize - 0x20) * 7 + 4],
-            FONT_7X7[(*c as usize - 0x20) * 7 + 5],
-            FONT_7X7[(*c as usize - 0x20) * 7 + 6],
-            0x00,
-        ];
+        /* Create an array with our I2C instruction and a blank column at the end */
+        let mut data: [u8; 9] = [SSD1306_BYTE_DATA, 0, 0, 0, 0, 0, 0, 0, 0];
 
+        /* Calculate our index into the character table above */
+        let index = (*c as usize - 0x20) * 7;
+
+        /* Populate the middle of the array with the data from the character array at the right
+         * index */
+        data[1..8].copy_from_slice(&FONT_7X7[index..index + 7]);
+
+        /* Write it out to the I2C bus */
         write_data(i2c, 0x3C, &data);
     }
 }
