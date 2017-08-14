@@ -9,6 +9,9 @@ extern crate cortex_m_rt;
 extern crate stm32f042;
 extern crate volatile_register;
 
+use stm32f042::peripherals::i2c::write_data as write_data;
+use stm32f042::peripherals::i2c::read_data as read_data;
+
 use stm32f042::*;
 use core::fmt::Write;
 use stm32f042::Interrupt;
@@ -33,10 +36,12 @@ fn main() {
             w.iopaen().set_bit().iopben().set_bit().iopfen().set_bit()
         });
 
-        /* Enable clock for TIM2 and I2C1 */
-        rcc.apb1enr.modify(
-            |_, w| w.tim2en().set_bit().i2c1en().set_bit(),
-        );
+        /* Enable clock for I2C1 */
+        rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
+
+        /* Reset I2C1 */
+        rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
+        rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
 
         /* (Re-)configure PB1, PB2 and PB3 as output */
         gpioa.moder.modify(|_, w| unsafe {
@@ -73,6 +78,9 @@ fn main() {
 
         /* Enable I2C signal generator, and configure I2C for 400KHz full speed */
         i2c.timingr.write(|w| unsafe { w.bits(0x0010_0209) });
+
+        /* Enable the I2C processing */
+        i2c.cr1.modify(|_, w| w.pe().set_bit());
 
         /* Set alternate function 1 to to enable USART RX/TX */
         gpioa.moder.modify(|_, w| unsafe {
@@ -164,77 +172,6 @@ fn read_char(usart1: &stm32f042::USART1) -> u8 {
 }
 
 
-fn read_data(i2c: &I2C1, addr: u8, req: u8, size: u8, data: &mut [u8]) -> Option<()> {
-    while i2c.isr.read().busy().bit_is_set() {}
-    while i2c.cr2.read().start().bit_is_set() {}
-
-    /* Enable the I2C processing */
-    i2c.cr1.modify(|_, w| w.pe().set_bit());
-
-    /* Wait while busy, just to be on the sure side */
-    while i2c.isr.read().busy().bit_is_set() {}
-
-    /* Wait while someone else is using the I2C bus, just to be on the sure side */
-    while i2c.cr2.read().start().bit_is_set() {}
-
-    /* Set up current address, we're trying a "read" command and not going to set anything
-     * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
-    i2c.cr2.modify(|_, w| unsafe {
-        w.sadd1()
-            .bits(addr)
-            .nbytes()
-            .bits(1)
-            .rd_wrn()
-            .clear_bit()
-            .autoend()
-            .clear_bit()
-    });
-
-    /* Send a START condition */
-    i2c.cr2.modify(|_, w| w.start().set_bit());
-
-    /* Wait until the transmit buffer is empty and there hasn't been either a NACK or STOP
-     * being received */
-    while i2c.isr.read().txis().bit_is_clear() {
-        if i2c.isr.read().nackf().bit_is_set() || i2c.isr.read().stopf().bit_is_set() {
-            /* Disable the I2C port. */
-            i2c.cr1.modify(|_, w| w.pe().clear_bit());
-            return None;
-        }
-    }
-    i2c.txdr.write(|w| unsafe { w.bits(req as u32) });
-
-    while i2c.cr2.read().start().bit_is_set() {}
-
-    /* Set up current address, we're trying a "read" command and not going to set anything
-     * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
-    i2c.cr2.modify(|_, w| unsafe {
-        w.sadd1()
-            .bits(addr)
-            .nbytes()
-            .bits(size)
-            .rd_wrn()
-            .set_bit()
-            .autoend()
-            .set_bit()
-    });
-
-    /* Send a START condition */
-    i2c.cr2.modify(|_, w| w.start().set_bit());
-
-    for c in data.iter_mut() {
-        while i2c.isr.read().rxne().bit_is_clear() {}
-        let value = i2c.rxdr.read().bits() as u8;
-        *c = value;
-    }
-
-    /* Disable the I2C port. */
-    i2c.cr1.modify(|_, w| w.pe().clear_bit());
-
-    Some(())
-}
-
-
 /* Read configuration from INA260 and return as 16bit unsigned value */
 fn read_i2c_ina260_config(i2c: &I2C1, address: u8) -> u16 {
     let mut data = [0; 2];
@@ -256,65 +193,6 @@ fn read_i2c_ina260_voltage(i2c: &I2C1, address: u8) -> u32 {
     let mut data = [0; 2];
     read_data(i2c, address, 0x02, 2, &mut data);
     (((data[0] as u32) << 8) | (data[1]) as u32) * 1250
-}
-
-
-fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
-    while i2c.isr.read().busy().bit_is_set() {}
-    while i2c.cr2.read().start().bit_is_set() {}
-
-    /* Enable the I2C processing */
-    i2c.cr1.modify(|_, w| w.pe().set_bit());
-
-    /* Wait while busy, just to be on the sure side */
-    while i2c.isr.read().busy().bit_is_set() {}
-
-    /* Wait while someone else is using the I2C bus, just to be on the sure side */
-    while i2c.cr2.read().start().bit_is_set() {}
-
-    /* Set up current address, we're trying a "read" command and not going to set anything
-     * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
-    i2c.cr2.modify(|_, w| unsafe {
-        w.sadd1()
-            .bits(addr)
-            .nbytes()
-            .bits((data.len()) as u8)
-            .rd_wrn()
-            .clear_bit()
-            .autoend()
-            .set_bit()
-    });
-
-    /* Send a START condition */
-    i2c.cr2.modify(|_, w| w.start().set_bit());
-
-    for c in data {
-        /* Push out a byte of data */
-        i2c.txdr.write(|w| unsafe { w.bits(*c as u32) });
-
-        /* Wait until the transmit buffer is empty and there hasn't been either a NACK or STOP
-         * being received */
-        let mut isr;
-        while {
-            isr = i2c.isr.read();
-            isr.txis().bit_is_clear() && isr.nackf().bit_is_clear() &&
-                isr.stopf().bit_is_clear() && isr.tc().bit_is_clear()
-        }
-        {}
-
-        /* If we received a NACK, then this is an error */
-        if isr.nackf().bit_is_set() {
-            /* Disable the I2C port. */
-            i2c.cr1.modify(|_, w| w.pe().clear_bit());
-            return None;
-        }
-    }
-
-    /* Disable the I2C port. */
-    i2c.cr1.modify(|_, w| w.pe().clear_bit());
-
-    /* Fallthrough is success */
-    Some(())
 }
 
 
