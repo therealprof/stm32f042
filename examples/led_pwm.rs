@@ -10,6 +10,7 @@ extern crate stm32f042;
 extern crate volatile_register;
 
 use stm32f042::*;
+use stm32f042::peripherals::usart;
 
 use core::fmt::Write;
 use stm32f042::Interrupt;
@@ -153,37 +154,6 @@ impl<'a> core::fmt::Write for Buffer<'a> {
 }
 
 
-fn read_char(usart1: &stm32f042::USART1) -> u8 {
-    /* Read the received value from the USART register */
-    let c = {
-        /* Check for overflow */
-        if usart1.isr.read().ore().bit_is_set() {
-            usart1.icr.modify(|_, w| w.orecf().set_bit());
-            usart1.rdr.read().bits()
-        }
-        /* Check if the USART received something */
-        else if usart1.isr.read().rxne().bit_is_set() {
-            usart1.rdr.read().bits()
-        }
-        /* Otherwise we'll set a dummy value */
-        else {
-            0
-        }
-    };
-
-    /* If value is not the dummy value: echo it back to the serial line */
-    if c != 0 {
-        /* Wait until the USART is clear to send */
-        while usart1.isr.read().txe().bit_is_clear() {}
-
-        /* Write the current character to the output register */
-        usart1.tdr.modify(|_, w| unsafe { w.bits(c) });
-    }
-
-    c as u8
-}
-
-
 /* Convert read character hex values to numbers */
 fn hex_to_number(input: u8) -> u8 {
     match input as char {
@@ -211,7 +181,7 @@ fn echo_n_pwm(l: &mut USART1::Locals) {
         let tim2 = stm32f042::TIM2.borrow(cs);
 
         /* Read a character */
-        let c = read_char(usart1);
+        let c = usart::read_char(usart1, true);
 
         /* Match character */
         match c as char {

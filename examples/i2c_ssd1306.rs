@@ -15,7 +15,8 @@ use core::fmt::Write;
 use stm32f042::Interrupt;
 use numtoa::NumToA;
 
-use stm32f042::peripherals::i2c::write_data as write_data;
+use stm32f042::peripherals::i2c::write_data;
+use stm32f042::peripherals::usart;
 
 
 const SSD1306_BYTE_CMD: u8 = 0x00;
@@ -295,37 +296,6 @@ fn ssd1306_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
 }
 
 
-fn read_char(usart1: &stm32f042::USART1) -> u8 {
-    /* Read the received value from the USART register */
-    let c = {
-        /* Check for overflow */
-        if usart1.isr.read().ore().bit_is_set() {
-            usart1.icr.modify(|_, w| w.orecf().set_bit());
-            usart1.rdr.read().bits()
-        }
-        /* Check if the USART received something */
-        else if usart1.isr.read().rxne().bit_is_set() {
-            usart1.rdr.read().bits()
-        }
-        /* Otherwise we'll set a dummy value */
-        else {
-            0
-        }
-    };
-
-    /* If value is not the dummy value: echo it back to the serial line */
-    if c != 0 {
-        /* Wait until the USART is clear to send */
-        while usart1.isr.read().txe().bit_is_clear() {}
-
-        /* Write the current character to the output register */
-        usart1.tdr.modify(|_, w| unsafe { w.bits(c) });
-    }
-
-    c as u8
-}
-
-
 /* Initialise display with some useful values */
 fn ssd1306_init(i2c: &I2C1) {
     write_data(i2c, 0x3C, &[SSD1306_BYTE_CMD_SINGLE, SSD1306_DISPLAY_OFF]);
@@ -411,7 +381,7 @@ fn usart_receive(l: &mut USART1::Locals) {
         l.count += 1;
 
         /* Read the character that triggered the interrupt from the USART */
-        read_char(usart1);
+        usart::read_char(usart1, false);
 
         /* Convert counter into a string */
         let mut buffer = [0u8; 10];

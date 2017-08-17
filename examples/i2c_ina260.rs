@@ -11,6 +11,7 @@ extern crate volatile_register;
 
 use stm32f042::peripherals::i2c::write_data as write_data;
 use stm32f042::peripherals::i2c::read_data as read_data;
+use stm32f042::peripherals::usart;
 
 use stm32f042::*;
 use core::fmt::Write;
@@ -141,37 +142,6 @@ impl<'a> core::fmt::Write for Buffer<'a> {
 }
 
 
-fn read_char(usart1: &stm32f042::USART1) -> u8 {
-    /* Read the received value from the USART register */
-    let c = {
-        /* Check for overflow */
-        if usart1.isr.read().ore().bit_is_set() {
-            usart1.icr.modify(|_, w| w.orecf().set_bit());
-            usart1.rdr.read().bits()
-        }
-        /* Check if the USART received something */
-        else if usart1.isr.read().rxne().bit_is_set() {
-            usart1.rdr.read().bits()
-        }
-        /* Otherwise we'll set a dummy value */
-        else {
-            0
-        }
-    };
-
-    /* If value is not the dummy value: echo it back to the serial line */
-    if c != 0 {
-        /* Wait until the USART is clear to send */
-        while usart1.isr.read().txe().bit_is_clear() {}
-
-        /* Write the current character to the output register */
-        usart1.tdr.modify(|_, w| unsafe { w.bits(c) });
-    }
-
-    c as u8
-}
-
-
 /* Read configuration from INA260 and return as 16bit unsigned value */
 fn read_i2c_ina260_config(i2c: &I2C1, address: u8) -> u16 {
     let mut data = [0; 2];
@@ -208,7 +178,7 @@ fn usart_receive() {
         let address = 0x41;
 
         /* Read the character that triggered the interrupt from the USART */
-        read_char(usart1);
+        usart::read_char(usart1, false);
 
         write!(
             buf,
