@@ -140,7 +140,7 @@ fn main() {
 
         /* Print a message on the display */
         ssd1306_pos(i2c, 0, 0);
-        ssd1306_print_bytes(i2c, &"Send key over serial for action".as_bytes());
+        ssd1306_print_bytes(i2c, b"Send key over serial for action");
 
         /* Output a nice message */
         Write::write_str(
