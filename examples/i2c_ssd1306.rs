@@ -67,11 +67,6 @@ fn main() {
         rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
         rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
 
-        /* (Re-)configure PB1, PB2 and PB3 as output */
-        gpioa.moder.modify(|_, w| unsafe {
-            w.moder1().bits(1).moder2().bits(1).moder3().bits(1)
-        });
-
         /* Set alternate function on PF0 and PF1 */
         gpiof.moder.modify(|_, w| unsafe {
             w.moder0().bits(2).moder1().bits(2)

@@ -41,11 +41,6 @@ fn main() {
             |_, w| w.tim2en().set_bit().i2c1en().set_bit(),
         );
 
-        /* (Re-)configure PB1, PB2 and PB3 as output */
-        gpioa.moder.modify(|_, w| unsafe {
-            w.moder1().bits(1).moder2().bits(1).moder3().bits(1)
-        });
-
         /* Set alternate function on PF0 and PF1 */
         gpiof.moder.modify(|_, w| unsafe {
             w.moder0().bits(2).moder1().bits(2)
