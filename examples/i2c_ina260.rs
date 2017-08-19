@@ -9,8 +9,8 @@ extern crate cortex_m_rt;
 extern crate stm32f042;
 extern crate volatile_register;
 
-use stm32f042::peripherals::i2c::write_data as write_data;
-use stm32f042::peripherals::i2c::read_data as read_data;
+use stm32f042::peripherals::i2c::write_data;
+use stm32f042::peripherals::i2c::read_data;
 use stm32f042::peripherals::usart;
 
 use stm32f042::*;
@@ -109,10 +109,10 @@ fn main() {
         nvic.clear_pending(Interrupt::USART1);
 
         /* Output a nice message */
-        Write::write_str(
-            &mut Buffer { cs },
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
             "\r\nWelcome to the INA260 reader. Enter any character to obtain values.\r\n",
-        ).unwrap();
+        );
     });
 }
 
@@ -120,26 +120,6 @@ fn main() {
 /* Define an interrupt handler, i.e. function to call when interrupt occurs. Here if we receive a
  * character from the USART well call the handler */
 interrupt!(USART1, usart_receive);
-
-
-struct Buffer<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-impl<'a> core::fmt::Write for Buffer<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = stm32f042::USART1.borrow(self.cs);
-        for c in s.as_bytes() {
-            /* Wait until the USART is clear to send */
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
-        }
-        Ok(())
-    }
-}
 
 
 /* Read configuration from INA260 and return as 16bit unsigned value */
@@ -172,7 +152,7 @@ fn usart_receive() {
     cortex_m::interrupt::free(|cs| {
         let usart1 = stm32f042::USART1.borrow(cs);
         let i2c = I2C1.borrow(cs);
-        let mut buf = Buffer { cs };
+        let mut buf = usart::USARTBuffer(cs);
 
         /* We assume the INA260 is configured to be at I2C address 0x41 */
         let address = 0x41;
@@ -180,35 +160,32 @@ fn usart_receive() {
         /* Read the character that triggered the interrupt from the USART */
         usart::read_char(usart1, false);
 
-        write!(
+        let _ = write!(
             buf,
             "Configuration before setting averaging is: 0x{:x}\r\n",
             read_i2c_ina260_config(i2c, address)
-        ).unwrap();
+        );
 
         write_data(i2c, address, &[0x00, 0x69, 0x27]);
 
-        write!(
+        let _ = write!(
             buf,
             "Configuration after is: 0x{:x}\r\n",
             read_i2c_ina260_config(i2c, address)
-        ).unwrap();
+        );
 
-        write!(
+        let _ = write!(
             buf,
             "Current is: {}µA\r\n",
             read_i2c_ina260_current(i2c, address)
-        ).unwrap();
+        );
 
-        write!(
+        let _ = write!(
             buf,
             "Voltage is: {}µV\r\n",
             read_i2c_ina260_voltage(i2c, address)
-        ).unwrap();
+        );
 
-        Write::write_str(
-            &mut buf,
-            "\r\nEnter any character to obtain values again.\r\n",
-        ).unwrap();
+        let _ = write!(buf, "\r\nEnter any character to obtain values again.\r\n");
     });
 }

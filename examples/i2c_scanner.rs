@@ -103,10 +103,10 @@ fn main() {
         nvic.clear_pending(Interrupt::USART1);
 
         /* Output a nice message */
-        Write::write_str(
-            &mut Buffer { cs },
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
             "\r\nWelcome to the I2C scanner. Enter any character to start scan.\r\n",
-        ).unwrap();
+        );
     });
 }
 
@@ -114,27 +114,6 @@ fn main() {
 /* Define an interrupt handler, i.e. function to call when interrupt occurs. Here if we receive a
  * character from the USART well call the handler */
 interrupt!(USART1, usart_receive);
-
-
-struct Buffer<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-impl<'a> core::fmt::Write for Buffer<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = stm32f042::USART1.borrow(self.cs);
-        for c in s.as_bytes() {
-            /* Wait until the USART is clear to send */
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
-        }
-        Ok(())
-    }
-}
-
 
 
 /* The IRQ handler triggered by a received character in USART buffer, this will conduct our I2C
@@ -148,9 +127,15 @@ fn usart_receive() {
         usart::read_char(usart1, false);
 
         /* Output address schema for tried addresses */
-        Write::write_str(&mut Buffer { cs }, "\r\n").unwrap();
-        Write::write_str(&mut Buffer { cs }, "0       1               2               3               4               5               6               7\r\n").unwrap();
-        Write::write_str(&mut Buffer { cs }, "89ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\r\n").unwrap();
+        let _ = Write::write_str(&mut usart::USARTBuffer(cs), "\r\n");
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
+            "0       1               2               3               4               5               6               7\r\n",
+        );
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
+            "89ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\r\n",
+        );
 
         /* Enable the I2C processing */
         i2c.cr1.modify(|_, w| w.pe().set_bit());
@@ -188,13 +173,14 @@ fn usart_receive() {
             }
 
             /* If we received a NACK there's no device on the tried address */
-            if i2c.isr.read().nackf().bit_is_set() {
-                /* Output a "N" to the serial port */
-                Write::write_str(&mut Buffer { cs }, "N").unwrap();
-            } else {
-                /* Output a "Y" to the serial port */
-                Write::write_str(&mut Buffer { cs }, "Y").unwrap();
-            }
+            let _ = Write::write_str(
+                &mut usart::USARTBuffer(cs),
+                if i2c.isr.read().nackf().bit_is_set() {
+                    "N"
+                } else {
+                    "Y"
+                },
+            );
 
             /* Clear STOP and NACK status flags */
             i2c.icr.write(|w| w.nackcf().set_bit().stopcf().set_bit());
@@ -203,9 +189,9 @@ fn usart_receive() {
         /* Disable the I2C port. */
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
-        Write::write_str(
-            &mut Buffer { cs },
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
             "\r\n\r\nScan done.\r\n'Y' means a device was found on the I2C address above.\r\n'N' means no device found on that address.\r\nPlease enter any character to start a new scan.\r\n",
-        ).unwrap();
+        );
     });
 }

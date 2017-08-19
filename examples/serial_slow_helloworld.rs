@@ -9,7 +9,10 @@ extern crate cortex_m_rt;
 extern crate stm32f042;
 extern crate volatile_register;
 
+use core::fmt::Write;
+
 use stm32f042::*;
+use stm32f042::peripherals::usart::*;
 
 use self::{RCC, SYST};
 use cortex_m::peripheral::SystClkSource;
@@ -75,35 +78,13 @@ exception!(SYS_TICK, hello_world, locals: {
 });
 
 
-struct Buffer<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-impl<'a> core::fmt::Write for Buffer<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = USART1.borrow(self.cs);
-        for c in s.as_bytes() {
-            /* Wait until the USART is clear to send */
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
-        }
-        Ok(())
-    }
-}
-
 
 fn hello_world(l: &mut SYS_TICK::Locals) {
     l.count += 1;
 
-    use core::fmt::Write;
-
     /* Enter critical section */
     cortex_m::interrupt::free(|cs| {
-        let mut output = Buffer { cs };
         /* Please be aware that while comfortable, this is a really heavyweight operation! */
-        writeln!(&mut output, "Hello World! The count is: {:#x}", l.count).unwrap();
+        let _ = writeln!(USARTBuffer(cs), "Hello World! The count is: {:#x}", l.count);
     });
 }

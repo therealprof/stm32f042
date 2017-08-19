@@ -119,7 +119,10 @@ fn main() {
         nvic.clear_pending(Interrupt::USART1);
 
         /* Output a nice message */
-        Write::write_str(&mut Buffer { cs }, "\r\nLED PWM demo: connect RGB LED to PA1, PA2, PA3.\r\nEnter RGB value in hex as RRGGBB\r\nEnter 'o' for individual channel dimming demo\r\nEnter 'p' for all channel PWM dimming demo\r\nAny other key will reset values\r\n").unwrap();
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
+            "\r\nLED PWM demo: connect RGB LED to PA1, PA2, PA3.\r\nEnter RGB value in hex as RRGGBB\r\nEnter 'o' for individual channel dimming demo\r\nEnter 'p' for all channel PWM dimming demo\r\nAny other key will reset values\r\n",
+        );
     });
 }
 
@@ -134,32 +137,12 @@ interrupt!(USART1, echo_n_pwm, locals: {
 });
 
 
-struct Buffer<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-impl<'a> core::fmt::Write for Buffer<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = stm32f042::USART1.borrow(self.cs);
-        for c in s.as_bytes() {
-            /* Wait until the USART is clear to send */
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
-        }
-        Ok(())
-    }
-}
-
-
 /* Convert read character hex values to numbers */
 fn hex_to_number(input: u8) -> u8 {
     match input as char {
         '0'...'9' => input - 48,
-        'a'...'f' => input - 87, 
-        'A'...'F' => input - 55, 
+        'a'...'f' => input - 87,
+        'A'...'F' => input - 55,
         _ => 0,
     }
 }
@@ -203,7 +186,7 @@ fn echo_n_pwm(l: &mut USART1::Locals) {
                     }
                     _ => l.state = 0,
                 }
-            } 
+            }
             /* If it's a 'p' then PWM dim RGB from off to full on and back */
             'p' => {
                 for i in 0..255 {
@@ -222,7 +205,7 @@ fn echo_n_pwm(l: &mut USART1::Locals) {
                 l.g = 0;
                 l.b = 0;
                 l.state = 0;
-            } 
+            }
 
             /* If it's an 'o' then PWM dim each channel (RGB) from off to full on and back */
             'o' => {
@@ -264,13 +247,13 @@ fn echo_n_pwm(l: &mut USART1::Locals) {
                 l.g = 0;
                 l.b = 0;
                 l.state = 0;
-            } 
+            }
             _ => {
                 l.r = 0;
                 l.g = 0;
                 l.b = 0;
                 l.state = 0;
-            } 
+            }
         }
 
         /* Set the current color state into the LEDs */

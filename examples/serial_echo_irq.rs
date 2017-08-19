@@ -10,6 +10,7 @@ extern crate stm32f042;
 extern crate volatile_register;
 
 use stm32f042::*;
+use stm32f042::peripherals::usart::*;
 
 use self::RCC;
 use core::fmt::Write;
@@ -63,7 +64,7 @@ fn main() {
         nvic.clear_pending(Interrupt::USART1);
 
         /* Output a nice message */
-        Write::write_str(&mut Buffer { cs }, "\nPlease state your business\n").unwrap();
+        let _ = writeln!(USARTBuffer(cs), "\nPlease state your business\n");
     });
 }
 
@@ -71,26 +72,6 @@ fn main() {
 /* Define an interrupt handler, i.e. function to call when interrupt occurs. Here if we receive a
  * character from the USART, our echo_b_blink function will be called */
 interrupt!(USART1, echo_n_blink);
-
-
-struct Buffer<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-impl<'a> core::fmt::Write for Buffer<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = stm32f042::USART1.borrow(self.cs);
-        for c in s.as_bytes() {
-            /* Wait until the USART is clear to send */
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
-        }
-        Ok(())
-    }
-}
 
 
 fn echo_n_blink() {

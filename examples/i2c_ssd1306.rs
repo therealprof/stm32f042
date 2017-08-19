@@ -144,10 +144,10 @@ fn main() {
         ssd1306_print_bytes(i2c, b"Send key over serial for action");
 
         /* Output a nice message */
-        Write::write_str(
-            &mut Buffer { cs },
+        let _ = Write::write_str(
+            &mut usart::USARTBuffer(cs),
             "\r\nWelcome to the SSD1306 example. Enter any character to update display.\r\n",
-        ).unwrap();
+        );
     });
 }
 
@@ -156,26 +156,6 @@ fn main() {
 interrupt!(USART1, usart_receive, locals: {
     count: u32 = 0;
 });
-
-
-struct Buffer<'a> {
-    cs: &'a cortex_m::interrupt::CriticalSection,
-}
-
-
-impl<'a> core::fmt::Write for Buffer<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = stm32f042::USART1.borrow(self.cs);
-        for c in s.as_bytes() {
-            /* Wait until the USART is clear to send */
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
-        }
-        Ok(())
-    }
-}
 
 
 fn ssd1306_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {

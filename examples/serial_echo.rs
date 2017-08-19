@@ -61,7 +61,7 @@ fn main() {
         syst.set_reload(10_000 - 1);
 
         /* Output a nice message */
-        Write::write_str(&mut Buffer { cs }, "\nPlease state your business\n").unwrap();
+        let _ = Write::write_str(&mut Buffer { cs }, "\nPlease state your business\n");
 
         /* Start counter */
         syst.enable_counter();
