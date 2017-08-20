@@ -51,10 +51,10 @@ fn main() {
         rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
         rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
 
-        /* (Re-)configure PB1 input */
+        /* (Re-)configure PB1 for input */
         gpiob.moder.modify(|_, w| unsafe { w.moder1().bits(0) });
 
-        /* Configure pull-down on OB1 */
+        /* Configure pull-down on PB1 */
         gpiob.pupdr.modify(|_, w| unsafe { w.pupdr1().bits(2) });
 
         /* Enable external interrupt of PB1 */
@@ -120,7 +120,7 @@ fn main() {
         /* Enable transmission and receiving as well as the RX IRQ */
         usart1.cr1.modify(|_, w| unsafe { w.bits(0x2D) });
 
-        /* Enable USART IRQ, set prio 0 and clear any pending IRQs */
+        /* Enable EXTI IRQ, set prio 1 and clear any pending IRQs */
         nvic.enable(Interrupt::EXTI0_1);
         unsafe { nvic.set_priority(Interrupt::EXTI0_1, 1) };
         nvic.clear_pending(Interrupt::EXTI0_1);
@@ -154,7 +154,7 @@ fn button_press() {
         /* Write new LED state with ASCII value of character */
         write_data(i2c, I2C_ADDRESS, &[0x12, state[0] + 1]);
 
-        /* Clear intterupt */
+        /* Clear interrupt */
         exti.pr.modify(|_, w| w.pr1().set_bit());
     });
 }
