@@ -2,7 +2,6 @@
 #![no_std]
 
 extern crate cortex_m;
-extern crate cortex_m_rt;
 extern crate stm32f042;
 
 use stm32f042::{GPIOB, RCC};

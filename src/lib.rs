@@ -14,3 +14,4 @@ mod svd;
 pub mod peripherals;
 
 pub use svd::*;
+pub use cortex_m_rt::*;

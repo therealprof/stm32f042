@@ -5,9 +5,7 @@
 extern crate cortex_m;
 
 #[macro_use(exception)]
-extern crate cortex_m_rt;
 extern crate stm32f042;
-extern crate volatile_register;
 
 use core::fmt::Write;
 

@@ -3,11 +3,9 @@
 #![no_std]
 
 extern crate cortex_m;
-extern crate cortex_m_rt;
 
 #[macro_use(interrupt)]
 extern crate stm32f042;
-extern crate volatile_register;
 
 use stm32f042::*;
 
