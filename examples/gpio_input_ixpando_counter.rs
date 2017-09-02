@@ -149,7 +149,7 @@ fn button_press() {
         /* Read the current LED state */
         read_data(i2c, I2C_ADDRESS, 0x12, 1, &mut state);
 
-        /* Write new LED state with ASCII value of character */
+        /* Write new LED state as previous state + 1 */
         write_data(i2c, I2C_ADDRESS, &[0x12, state[0] + 1]);
 
         /* Clear interrupt */
