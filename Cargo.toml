@@ -1,33 +1,37 @@
 [package]
-name = "stm32f042"
-categories = ["embedded", "no-std"]
-keywords = ["arm", "cortex-m", "template"]
-version = "0.4.2"
 authors = ["Daniel Egger <daniel@eggers-club.de>"]
+categories = [
+    "embedded",
+    "no-std",
+]
+keywords = [
+    "arm",
+    "cortex-m",
+    "template",
+]
+name = "stm32f042"
+version = "0.4.2"
+
+[dependencies]
+bare-metal = "0.1.0"
+cortex-m = "0.3.1"
+numtoa = "0.0.7"
+static-ref = "0.2.1"
+vcell = "0.1.0"
+volatile-register = "0.2.0"
+
+[dependencies.cortex-m-rt]
+features = ["abort-on-panic"]
+version = "0.3.5"
 
 [features]
 default = ["rt"]
 rt = []
-
-[dependencies]
-vcell = "0.1.0"
-volatile-register = "0.2.0"
-static-ref = "0.1.0"
-bare-metal = "0.1.0"
-numtoa = "0.0.7"
-
-[dependencies.cortex-m]
-version = "0.3.0"
-
-[dependencies.cortex-m-rt]
-features = ["abort-on-panic"]
-version = "0.3.2"
-
 [profile.dev]
-lto = true
 debug = true
+lto = true
 
 [profile.release]
-lto = true
 debug = true
+lto = true
 opt-level = "s"
