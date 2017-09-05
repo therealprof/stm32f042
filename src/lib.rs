@@ -4,8 +4,6 @@
 #![cfg_attr(feature="rt",feature(used))]
 #![feature(const_fn)]
 #![allow(non_camel_case_types)]
-#![feature(asm)]
-#![feature(naked_functions)]
 
 extern crate cortex_m;
 extern crate cortex_m_rt;
