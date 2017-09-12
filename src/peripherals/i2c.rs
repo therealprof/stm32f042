@@ -7,7 +7,7 @@ pub fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
         w.sadd1()
             .bits(addr)
             .nbytes()
-            .bits((data.len()) as u8)
+            .bits(data.len() as u8)
             .rd_wrn()
             .clear_bit()
             .autoend()
@@ -22,7 +22,7 @@ pub fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
         while i2c.isr.read().txis().bit_is_clear() {}
 
         /* Push out a byte of data */
-        i2c.txdr.write(|w| unsafe { w.bits(*c as u32) });
+        i2c.txdr.write(|w| unsafe { w.bits(u32::from(*c)) });
 
         /* If we received a NACK, then this is an error */
         if i2c.isr.read().nackf().bit_is_set() {
@@ -71,7 +71,7 @@ pub fn read_data(i2c: &I2C1, addr: u8, req: u8, size: u8, data: &mut [u8]) -> Op
     }
 
     /* Push out a byte of data */
-    i2c.txdr.write(|w| unsafe { w.bits(req as u32) });
+    i2c.txdr.write(|w| unsafe { w.bits(u32::from(req)) });
 
     /* Wait until data was sent */
     while i2c.isr.read().tc().bit_is_clear() {}

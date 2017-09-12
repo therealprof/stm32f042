@@ -119,7 +119,7 @@ interrupt!(USART1, usart_receive);
 fn read_i2c_ina260_config(i2c: &I2C1, address: u8) -> u16 {
     let mut data = [0; 2];
     read_data(i2c, address, 0x00, 2, &mut data);
-    (((data[0] as u16) << 8) | (data[1]) as u16)
+    (u16::from(data[0]) << 8) | u16::from(data[1])
 }
 
 
@@ -127,7 +127,7 @@ fn read_i2c_ina260_config(i2c: &I2C1, address: u8) -> u16 {
 fn read_i2c_ina260_current(i2c: &I2C1, address: u8) -> u32 {
     let mut data = [0; 2];
     read_data(i2c, address, 0x01, 2, &mut data);
-    (((data[0] as u32) << 8) | (data[1]) as u32) * 1250
+    ((u32::from(data[0]) << 8) | u32::from(data[1])) * 1250
 }
 
 
@@ -135,7 +135,7 @@ fn read_i2c_ina260_current(i2c: &I2C1, address: u8) -> u32 {
 fn read_i2c_ina260_voltage(i2c: &I2C1, address: u8) -> u32 {
     let mut data = [0; 2];
     read_data(i2c, address, 0x02, 2, &mut data);
-    (((data[0] as u32) << 8) | (data[1]) as u32) * 1250
+    ((u32::from(data[0]) << 8) | u32::from(data[1])) * 1250
 }
 
 

@@ -142,9 +142,9 @@ fn main() {
 
 /* Set PWM channel compare register to the specified intensities */
 fn change_color(tim2: &stm32f042::TIM2, r: u8, g: u8, b: u8) {
-    tim2.ccr2.modify(|_, w| unsafe { w.bits(r as u32) });
-    tim2.ccr3.modify(|_, w| unsafe { w.bits(g as u32) });
-    tim2.ccr4.modify(|_, w| unsafe { w.bits(b as u32) });
+    tim2.ccr2.modify(|_, w| unsafe { w.bits(u32::from(r)) });
+    tim2.ccr3.modify(|_, w| unsafe { w.bits(u32::from(g)) });
+    tim2.ccr4.modify(|_, w| unsafe { w.bits(u32::from(b)) });
 }
 
 

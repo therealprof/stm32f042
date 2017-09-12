@@ -88,7 +88,7 @@ impl<'a> core::fmt::Write for Buffer<'a> {
             while usart1.isr.read().txe().bit_is_clear() {}
 
             /* Write the current character to the output register */
-            usart1.tdr.modify(|_, w| unsafe { w.bits(*c as u32) });
+            usart1.tdr.modify(|_, w| unsafe { w.bits(u32::from(*c)) });
         }
         Ok(())
     }
