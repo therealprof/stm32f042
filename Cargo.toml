@@ -13,7 +13,7 @@ name = "stm32f042"
 version = "0.4.2"
 
 [dependencies]
-bare-metal = "0.1.0"
+bare-metal = "0.1.1"
 cortex-m = "0.3.1"
 numtoa = "0.0.7"
 static-ref = "0.2.1"
