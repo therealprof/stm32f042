@@ -22,7 +22,7 @@ volatile-register = "0.2.0"
 
 [dependencies.cortex-m-rt]
 features = ["abort-on-panic"]
-version = "0.3.6"
+version = "0.3.8"
 
 [features]
 default = ["rt"]
