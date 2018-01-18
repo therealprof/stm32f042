@@ -4,6 +4,7 @@
 
 extern crate numtoa;
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(interrupt)]
 extern crate stm32f042;
@@ -40,13 +41,12 @@ const SSD1306_CHARGE_PUMP: u8 = 0x8D;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpioa = GPIOA.borrow(cs);
-        let gpiof = GPIOF.borrow(cs);
-        let usart1 = stm32f042::USART1.borrow(cs);
-        let nvic = NVIC.borrow(cs);
-        let i2c = I2C1.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let gpioa = unsafe { &(*GPIOA::ptr()) };
+        let gpiof = unsafe { &(*GPIOF::ptr()) };
+        let usart1 = unsafe { &(*stm32f042::USART1::ptr()) };
+        let i2c = unsafe { &(*I2C1::ptr()) };
 
         /* Enable clock for SYSCFG and USART */
         rcc.apb2enr.modify(|_, w| {
@@ -120,9 +120,9 @@ fn main() {
         usart1.cr1.modify(|_, w| unsafe { w.bits(0x2D) });
 
         /* Enable USART IRQ, set prio 0 and clear any pending IRQs */
-        nvic.enable(Interrupt::USART1);
-        unsafe { nvic.set_priority(Interrupt::USART1, 1) };
-        nvic.clear_pending(Interrupt::USART1);
+        peripherals.NVIC.enable(Interrupt::USART1);
+        unsafe { peripherals.NVIC.set_priority(Interrupt::USART1, 1) };
+        peripherals.NVIC.clear_pending(Interrupt::USART1);
 
         /* Give display time to settle */
         for _ in 0..500_000 {
@@ -137,11 +137,13 @@ fn main() {
         ssd1306_print_bytes(i2c, b"Send key over serial for action");
 
         /* Output a nice message */
-        let _ = Write::write_str(
-            &mut usart::USARTBuffer(cs),
-            "\r\nWelcome to the SSD1306 example. Enter any character to update display.\r\n",
-        );
-    });
+        cortex_m::interrupt::free(|cs| {
+            let _ = Write::write_str(
+                &mut usart::USARTBuffer(cs),
+                "\r\nWelcome to the SSD1306 example. Enter any character to update display.\r\n",
+            );
+        });
+    }
 }
 
 
@@ -151,7 +153,7 @@ interrupt!(USART1, usart_receive, locals: {
 });
 
 
-fn ssd1306_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
+fn ssd1306_print_bytes(i2c: &stm32f042::i2c1::RegisterBlock, bytes: &[u8]) {
     /* A 7x7 font shamelessly borrowed from https://github.com/techninja/MarioChron/ */
     const FONT_7X7: [u8; 672] = [
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,// (space)
@@ -270,7 +272,7 @@ fn ssd1306_print_bytes(i2c: &stm32f042::I2C1, bytes: &[u8]) {
 
 
 /* Initialise display with some useful values */
-fn ssd1306_init(i2c: &I2C1) {
+fn ssd1306_init(i2c: &stm32f042::i2c1::RegisterBlock) {
     write_data(i2c, 0x3C, &[SSD1306_BYTE_CMD_SINGLE, SSD1306_DISPLAY_OFF]);
     write_data(
         i2c,
@@ -330,7 +332,7 @@ fn ssd1306_init(i2c: &I2C1) {
 
 
 /* Position cursor at specified x, y block coordinate (multiple of 8) */
-fn ssd1306_pos(i2c: &I2C1, x: u8, y: u8) {
+fn ssd1306_pos(i2c: &stm32f042::i2c1::RegisterBlock, x: u8, y: u8) {
     let data = [
         SSD1306_BYTE_CMD,
         SSD1306_COLUMN_RANGE,
@@ -347,9 +349,9 @@ fn ssd1306_pos(i2c: &I2C1, x: u8, y: u8) {
 /* The IRQ handler triggered by a received character in USART buffer, this will send out something
  * to the I2C display */
 fn usart_receive(l: &mut USART1::Locals) {
-    cortex_m::interrupt::free(|cs| {
-        let usart1 = stm32f042::USART1.borrow(cs);
-        let i2c = I2C1.borrow(cs);
+    cortex_m::interrupt::free(|_| {
+        let usart1 = unsafe { &(*stm32f042::USART1::ptr()) };
+        let i2c = unsafe { &(*I2C1::ptr()) };
 
         l.count += 1;
 

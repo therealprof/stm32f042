@@ -1,9 +1,10 @@
 use USART1;
+use usart1;
 use core;
 
 extern crate cortex_m;
 
-pub fn read_char(usart1: &USART1, echo: bool) -> u8 {
+pub fn read_char(usart1: &usart1::RegisterBlock, echo: bool) -> u8 {
     /* Read the received value from the USART register */
     let c = {
         /* Check for overflow */
@@ -38,7 +39,7 @@ pub struct USARTBuffer<'a>(pub &'a cortex_m::interrupt::CriticalSection);
 
 impl<'a> core::fmt::Write for USARTBuffer<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let usart1 = USART1.borrow(self.0);
+        let usart1 = unsafe { &(*USART1::ptr()) };
         for c in s.as_bytes() {
             /* Wait until the USART is clear to send */
             while usart1.isr.read().txe().bit_is_clear() {}

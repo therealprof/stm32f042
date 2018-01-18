@@ -14,4 +14,5 @@ mod svd;
 pub mod peripherals;
 
 pub use svd::*;
+pub use svd::interrupt::*;
 pub use cortex_m_rt::*;

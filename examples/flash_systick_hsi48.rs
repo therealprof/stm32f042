@@ -3,22 +3,22 @@
 #![no_std]
 
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(exception)]
 extern crate stm32f042;
 
 use stm32f042::*;
 
-use self::{GPIOB, RCC, SYST};
-use cortex_m::peripheral::SystClkSource;
+use self::{GPIOB, RCC};
+use cortex_m::peripheral::syst::SystClkSource;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpiob = GPIOB.borrow(cs);
-        let syst = SYST.borrow(cs);
-        let flash = FLASH.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let gpiob = unsafe { &(*GPIOB::ptr()) };
+        let flash = unsafe { &(*FLASH::ptr()) };
 
         /* Enable clock for SYSCFG, else everything will behave funky! */
         rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
@@ -62,21 +62,18 @@ fn main() {
         /*  (Re-)configure PB1 as output */
         gpiob.moder.modify(|_, w| unsafe { w.moder1().bits(1) });
 
-        /* Initialise SysTick counter with a defined value */
-        unsafe { syst.cvr.write(1) };
-
         /* Set source for SysTick counter, here full operating frequency (== 8MHz) */
-        syst.set_clock_source(SystClkSource::Core);
+        peripherals.SYST.set_clock_source(SystClkSource::Core);
 
         /* Set reload value, i.e. timer delay 48 MHz/4 Mcounts == 12Hz or 83ms */
-        syst.set_reload(4_000_000 - 1);
+        peripherals.SYST.set_reload(4_000_000 - 1);
 
         /* Start counter */
-        syst.enable_counter();
+        peripherals.SYST.enable_counter();
 
         /* Start interrupt generation */
-        syst.enable_interrupt();
-    });
+        peripherals.SYST.enable_interrupt();
+    }
 }
 
 
@@ -88,23 +85,20 @@ exception!(SYS_TICK, flash, locals: {
 
 
 fn flash(l: &mut SYS_TICK::Locals) {
-    /* Enter critical section */
-    cortex_m::interrupt::free(|cs| {
-        let gpiob = GPIOB.borrow(cs);
+    let gpiob = unsafe { &(*GPIOB::ptr()) };
 
-        /* Check state variable, keep LED off most of the time and turn it on every 10th tick */
-        if l.state < 10 {
-            /* If set turn off the LED */
-            gpiob.brr.write(|w| w.br1().set_bit());
+    /* Check state variable, keep LED off most of the time and turn it on every 10th tick */
+    if l.state < 10 {
+        /* If set turn off the LED */
+        gpiob.brr.write(|w| w.br1().set_bit());
 
-            /* And now increment state variable */
-            l.state += 1;
-        } else {
-            /* If not set, turn on the LED */
-            gpiob.bsrr.write(|w| w.bs1().set_bit());
+        /* And now increment state variable */
+        l.state += 1;
+    } else {
+        /* If not set, turn on the LED */
+        gpiob.bsrr.write(|w| w.bs1().set_bit());
 
-            /* And set new state variable back to 0 */
-            l.state = 1;
-        }
-    });
+        /* And set new state variable back to 0 */
+        l.state = 1;
+    }
 }

@@ -3,6 +3,7 @@
 #![no_std]
 
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(interrupt)]
 extern crate stm32f042;
@@ -15,12 +16,11 @@ use stm32f042::Interrupt;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpioa = GPIOA.borrow(cs);
-        let usart1 = stm32f042::USART1.borrow(cs);
-        let nvic = NVIC.borrow(cs);
-        let tim2 = TIM2.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let gpioa = unsafe { &(*GPIOA::ptr()) };
+        let usart1 = unsafe { &(*stm32f042::USART1::ptr()) };
+        let tim2 = unsafe { &(*TIM2::ptr()) };
 
         /* Enable clock for SYSCFG and USART */
         rcc.apb2enr.modify(|_, w| {
@@ -112,16 +112,18 @@ fn main() {
         usart1.cr1.modify(|_, w| unsafe { w.bits(0x2D) });
 
         /* Enable USART IRQ, set prio 0 and clear any pending IRQs */
-        nvic.enable(Interrupt::USART1);
-        unsafe { nvic.set_priority(Interrupt::USART1, 1) };
-        nvic.clear_pending(Interrupt::USART1);
+        peripherals.NVIC.enable(Interrupt::USART1);
+        unsafe { peripherals.NVIC.set_priority(Interrupt::USART1, 1) };
+        peripherals.NVIC.clear_pending(Interrupt::USART1);
 
-        /* Output a nice message */
-        let _ = Write::write_str(
-            &mut usart::USARTBuffer(cs),
-            "\r\nLED PWM demo: connect RGB LED to PA1, PA2, PA3.\r\nEnter RGB value in hex as RRGGBB\r\nEnter 'o' for individual channel dimming demo\r\nEnter 'p' for all channel PWM dimming demo\r\nAny other key will reset values\r\n",
-        );
-    });
+        cortex_m::interrupt::free(|cs| {
+            /* Output a nice message */
+            let _ = Write::write_str(
+                &mut usart::USARTBuffer(cs),
+                "\r\nLED PWM demo: connect RGB LED to PA1, PA2, PA3.\r\nEnter RGB value in hex as RRGGBB\r\nEnter 'o' for individual channel dimming demo\r\nEnter 'p' for all channel PWM dimming demo\r\nAny other key will reset values\r\n",
+            );
+        });
+    }
 }
 
 
@@ -147,7 +149,7 @@ fn hex_to_number(input: u8) -> u8 {
 
 
 /* Set PWM channel compare register to the specified intensities */
-fn change_color(tim2: &stm32f042::TIM2, r: u8, g: u8, b: u8) {
+fn change_color(tim2: &stm32f042::tim2::RegisterBlock, r: u8, g: u8, b: u8) {
     tim2.ccr2.modify(|_, w| unsafe { w.bits(u32::from(r)) });
     tim2.ccr3.modify(|_, w| unsafe { w.bits(u32::from(g)) });
     tim2.ccr4.modify(|_, w| unsafe { w.bits(u32::from(b)) });
@@ -157,104 +159,102 @@ fn change_color(tim2: &stm32f042::TIM2, r: u8, g: u8, b: u8) {
 /* The IRQ handler to read the character from the USART buffer, convert it to some usable
  * instruction and reprogram the PWM accordingly */
 fn echo_n_pwm(l: &mut USART1::Locals) {
-    cortex_m::interrupt::free(|cs| {
-        let usart1 = stm32f042::USART1.borrow(cs);
-        let tim2 = stm32f042::TIM2.borrow(cs);
+    let usart1 = unsafe { &(*stm32f042::USART1::ptr()) };
+    let tim2 = unsafe { &(*stm32f042::TIM2::ptr()) };
 
-        /* Read a character */
-        let c = usart::read_char(usart1, true);
+    /* Read a character */
+    let c = usart::read_char(usart1, true);
 
-        /* Match character */
-        match c as char {
-            /* ... is it a hex number? */
-            '0'...'9' | 'a'...'f' | 'A'...'F' => {
-                let c = hex_to_number(c);
+    /* Match character */
+    match c as char {
+        /* ... is it a hex number? */
+        '0'...'9' | 'a'...'f' | 'A'...'F' => {
+            let c = hex_to_number(c);
 
-                l.state += 1;
-                /* ... then use it to set the current color component in RRGGBB format */
-                match l.state {
-                    1 => l.r = c << 4,
-                    2 => l.r = (l.r & 0xf0) | c,
-                    3 => l.g = c << 4,
-                    4 => l.g = (l.g & 0xf0) | c,
-                    5 => l.b = c << 4,
-                    6 => {
-                        l.b = (l.b & 0xf0) | c;
-                        l.state = 0
-                    }
-                    _ => l.state = 0,
+            l.state += 1;
+            /* ... then use it to set the current color component in RRGGBB format */
+            match l.state {
+                1 => l.r = c << 4,
+                2 => l.r = (l.r & 0xf0) | c,
+                3 => l.g = c << 4,
+                4 => l.g = (l.g & 0xf0) | c,
+                5 => l.b = c << 4,
+                6 => {
+                    l.b = (l.b & 0xf0) | c;
+                    l.state = 0
+                }
+                _ => l.state = 0,
+            }
+        }
+        /* If it's a 'p' then PWM dim RGB from off to full on and back */
+        'p' => {
+            for i in 0..255 {
+                for _ in 0..2048 {
+                    change_color(tim2, i, i, i);
                 }
             }
-            /* If it's a 'p' then PWM dim RGB from off to full on and back */
-            'p' => {
+
+            for i in (0..255).rev() {
+                for _ in 0..2048 {
+                    change_color(tim2, i, i, i);
+                }
+            }
+
+            l.r = 0;
+            l.g = 0;
+            l.b = 0;
+            l.state = 0;
+        }
+
+        /* If it's an 'o' then PWM dim each channel (RGB) from off to full on and back */
+        'o' => {
+            for color in 0..3 {
+                let mut r = 0;
+                let mut g = 0;
+                let mut b = 0;
+
                 for i in 0..255 {
                     for _ in 0..2048 {
-                        change_color(tim2, i, i, i);
+                        if color == 0 {
+                            r = i;
+                        } else if color == 1 {
+                            g = i;
+                        } else {
+                            b = i;
+                        }
+
+                        change_color(tim2, r, g, b);
                     }
                 }
 
                 for i in (0..255).rev() {
                     for _ in 0..2048 {
-                        change_color(tim2, i, i, i);
+                        if color == 0 {
+                            r = i;
+                        } else if color == 1 {
+                            g = i;
+                        } else {
+                            b = i;
+                        }
+
+                        change_color(tim2, r, g, b);
                     }
                 }
-
-                l.r = 0;
-                l.g = 0;
-                l.b = 0;
-                l.state = 0;
             }
 
-            /* If it's an 'o' then PWM dim each channel (RGB) from off to full on and back */
-            'o' => {
-                for color in 0..3 {
-                    let mut r = 0;
-                    let mut g = 0;
-                    let mut b = 0;
-
-                    for i in 0..255 {
-                        for _ in 0..2048 {
-                            if color == 0 {
-                                r = i;
-                            } else if color == 1 {
-                                g = i;
-                            } else {
-                                b = i;
-                            }
-
-                            change_color(tim2, r, g, b);
-                        }
-                    }
-
-                    for i in (0..255).rev() {
-                        for _ in 0..2048 {
-                            if color == 0 {
-                                r = i;
-                            } else if color == 1 {
-                                g = i;
-                            } else {
-                                b = i;
-                            }
-
-                            change_color(tim2, r, g, b);
-                        }
-                    }
-                }
-
-                l.r = 0;
-                l.g = 0;
-                l.b = 0;
-                l.state = 0;
-            }
-            _ => {
-                l.r = 0;
-                l.g = 0;
-                l.b = 0;
-                l.state = 0;
-            }
+            l.r = 0;
+            l.g = 0;
+            l.b = 0;
+            l.state = 0;
         }
+        _ => {
+            l.r = 0;
+            l.g = 0;
+            l.b = 0;
+            l.state = 0;
+        }
+    }
 
-        /* Set the current color state into the LEDs */
-        change_color(tim2, l.r, l.g, l.b);
-    });
+    /* Set the current color state into the LEDs */
+    change_color(tim2, l.r, l.g, l.b);
 }

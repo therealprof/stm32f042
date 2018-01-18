@@ -1,6 +1,6 @@
-use I2C1;
+use i2c1;
 
-pub fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
+pub fn write_data(i2c: &i2c1::RegisterBlock, addr: u8, data: &[u8]) -> Option<()> {
     /* Set up current address, we're trying a "read" command and not going to set anything
      * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
     i2c.cr2.modify(|_, w| unsafe {
@@ -37,7 +37,13 @@ pub fn write_data(i2c: &I2C1, addr: u8, data: &[u8]) -> Option<()> {
 }
 
 
-pub fn read_data(i2c: &I2C1, addr: u8, req: u8, size: u8, data: &mut [u8]) -> Option<()> {
+pub fn read_data(
+    i2c: &i2c1::RegisterBlock,
+    addr: u8,
+    req: u8,
+    size: u8,
+    data: &mut [u8],
+) -> Option<()> {
     /* Set up current address, we're trying a "read" command and not going to set anything
      * and make sure we end a non-NACKed read (i.e. if we found a device) properly */
     i2c.cr2.modify(|_, w| unsafe {

@@ -1,8 +1,10 @@
 #![feature(used)]
 #![feature(const_fn)]
 #![no_std]
+#![feature(trace_macros)]
 
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(exception)]
 extern crate stm32f042;
@@ -12,16 +14,15 @@ use core::fmt::Write;
 use stm32f042::*;
 use stm32f042::peripherals::usart::*;
 
-use self::{RCC, SYST};
-use cortex_m::peripheral::SystClkSource;
+use self::RCC;
+use cortex_m::peripheral::syst::SystClkSource;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpioa = GPIOA.borrow(cs);
-        let syst = SYST.borrow(cs);
-        let usart1 = USART1.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let gpioa = unsafe { &(*GPIOA::ptr()) };
+        let usart1 = unsafe { &(*USART1::ptr()) };
 
         /* Enable clock for SYSCFG and USART */
         rcc.apb2enr.modify(|_, w| {
@@ -51,21 +52,18 @@ fn main() {
         /* Enable transmission and receiving */
         usart1.cr1.modify(|_, w| unsafe { w.bits(0xD) });
 
-        /* Initialise SysTick counter with a defined value */
-        unsafe { syst.cvr.write(1) };
-
         /* Set source for SysTick counter, here 1/8th operating frequency (== 6 MHz) */
-        syst.set_clock_source(SystClkSource::External);
+        peripherals.SYST.set_clock_source(SystClkSource::External);
 
         /* Set reload value, i.e. timer delay (== 1s) */
-        syst.set_reload(1_000_000 - 1);
+        peripherals.SYST.set_reload(1_000_000 - 1);
 
         /* Start counter */
-        syst.enable_counter();
+        peripherals.SYST.enable_counter();
 
         /* Start interrupt generation */
-        syst.enable_interrupt();
-    });
+        peripherals.SYST.enable_interrupt();
+    }
 }
 
 

@@ -3,6 +3,7 @@
 #![no_std]
 
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(interrupt)]
 extern crate stm32f042;
@@ -16,12 +17,11 @@ use stm32f042::Interrupt;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpioa = GPIOA.borrow(cs);
-        let gpiob = GPIOB.borrow(cs);
-        let usart1 = stm32f042::USART1.borrow(cs);
-        let nvic = NVIC.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let gpioa = unsafe { &(*GPIOA::ptr()) };
+        let gpiob = unsafe { &(*GPIOB::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let usart1 = unsafe { &(*USART1::ptr()) };
 
         /* Enable clock for SYSCFG and USART */
         rcc.apb2enr.modify(|_, w| {
@@ -57,13 +57,15 @@ fn main() {
         usart1.cr1.modify(|_, w| unsafe { w.bits(0x2D) });
 
         /* Enable USART IRQ, set prio 0 and clear any pending IRQs */
-        nvic.enable(Interrupt::USART1);
-        unsafe { nvic.set_priority(Interrupt::USART1, 1) };
-        nvic.clear_pending(Interrupt::USART1);
+        peripherals.NVIC.enable(Interrupt::USART1);
+        unsafe { peripherals.NVIC.set_priority(Interrupt::USART1, 1) };
+        peripherals.NVIC.clear_pending(Interrupt::USART1);
 
         /* Output a nice message */
-        let _ = writeln!(USARTBuffer(cs), "\nPlease state your business\n");
-    });
+        cortex_m::interrupt::free(|cs| {
+            let _ = writeln!(USARTBuffer(cs), "\nPlease state your business\n");
+        });
+    }
 }
 
 
@@ -73,9 +75,9 @@ interrupt!(USART1, echo_n_blink);
 
 
 fn echo_n_blink() {
-    cortex_m::interrupt::free(|cs| {
-        let gpiob = GPIOB.borrow(cs);
-        let usart1 = stm32f042::USART1.borrow(cs);
+    cortex_m::interrupt::free(|_| {
+        let gpiob = unsafe { &(*GPIOB::ptr()) };
+        let usart1 = unsafe { &(*stm32f042::USART1::ptr()) };
 
         /* Read the received value from the USART register */
         let c = {

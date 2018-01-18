@@ -3,21 +3,21 @@
 #![no_std]
 
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(exception)]
 extern crate stm32f042;
 
 use stm32f042::*;
 
-use self::{GPIOB, RCC, SYST};
-use cortex_m::peripheral::SystClkSource;
+use self::{GPIOB, RCC};
+use cortex_m::peripheral::syst::SystClkSource;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpiob = GPIOB.borrow(cs);
-        let syst = SYST.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let gpiob = unsafe { &(*GPIOB::ptr()) };
 
         /* Enable clock for SYSCFG, else everything will behave funky! */
         rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
@@ -28,21 +28,18 @@ fn main() {
         /* (Re-)configure PB1 as output */
         gpiob.moder.modify(|_, w| unsafe { w.moder1().bits(1) });
 
-        /* Initialise SysTick counter with a defined value */
-        unsafe { syst.cvr.write(1) };
+        /* Set source for SysTick counter, here 1/8th operating frequency (== 6 MHz) */
+        peripherals.SYST.set_clock_source(SystClkSource::External);
 
-        /* Set source for SysTick counter, here full operating frequency (== 8MHz) */
-        syst.set_clock_source(SystClkSource::Core);
-
-        /* Set reload value, i.e. timer delay (== 128ms) */
-        syst.set_reload(1_000_000);
+        /* Set reload value, i.e. timer delay (== 1s) */
+        peripherals.SYST.set_reload(1_000_000 - 1);
 
         /* Start counter */
-        syst.enable_counter();
+        peripherals.SYST.enable_counter();
 
         /* Start interrupt generation */
-        syst.enable_interrupt();
-    });
+        peripherals.SYST.enable_interrupt();
+    }
 }
 
 
@@ -55,8 +52,8 @@ exception!(SYS_TICK, blink, locals: {
 
 fn blink(l: &mut SYS_TICK::Locals) {
     /* Enter critical section */
-    cortex_m::interrupt::free(|cs| {
-        let gpiob = GPIOB.borrow(cs);
+    cortex_m::interrupt::free(|_| {
+        let gpiob = unsafe { &(*GPIOB::ptr()) };
 
         /* Check state variable */
         if l.state {

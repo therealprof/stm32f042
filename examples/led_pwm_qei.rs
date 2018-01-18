@@ -3,6 +3,7 @@
 #![no_std]
 
 extern crate cortex_m;
+use cortex_m::peripheral::Peripherals;
 
 #[macro_use(interrupt)]
 extern crate stm32f042;
@@ -17,14 +18,13 @@ static mut COLOR: usize = 0;
 
 
 fn main() {
-    cortex_m::interrupt::free(|cs| {
-        let rcc = RCC.borrow(cs);
-        let gpioa = GPIOA.borrow(cs);
-        let gpiob = GPIOB.borrow(cs);
-        let tim2 = TIM2.borrow(cs);
-        let exti = EXTI.borrow(cs);
-        let syscfg = SYSCFG.borrow(cs);
-        let nvic = NVIC.borrow(cs);
+    if let Some(mut peripherals) = Peripherals::take() {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let gpioa = unsafe { &(*GPIOA::ptr()) };
+        let gpiob = unsafe { &(*GPIOB::ptr()) };
+        let tim2 = unsafe { &(*TIM2::ptr()) };
+        let exti = unsafe { &(*EXTI::ptr()) };
+        let syscfg = unsafe { &(*SYSCFG::ptr()) };
 
         /* Enable clock for SYSCFG */
         rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
@@ -124,24 +124,24 @@ fn main() {
         });
 
         /* Enable EXTI IRQs, set prio 1 and clear any pending IRQs */
-        nvic.enable(Interrupt::EXTI0_1);
-        unsafe { nvic.set_priority(Interrupt::EXTI0_1, 1) };
-        nvic.clear_pending(Interrupt::EXTI0_1);
+        peripherals.NVIC.enable(Interrupt::EXTI0_1);
+        unsafe { peripherals.NVIC.set_priority(Interrupt::EXTI0_1, 1) };
+        peripherals.NVIC.clear_pending(Interrupt::EXTI0_1);
 
-        nvic.enable(Interrupt::EXTI4_15);
-        unsafe { nvic.set_priority(Interrupt::EXTI4_15, 1) };
-        nvic.clear_pending(Interrupt::EXTI4_15);
+        peripherals.NVIC.enable(Interrupt::EXTI4_15);
+        unsafe { peripherals.NVIC.set_priority(Interrupt::EXTI4_15, 1) };
+        peripherals.NVIC.clear_pending(Interrupt::EXTI4_15);
 
         /* Clear interrupt lines 1, 4 and 5 */
         exti.pr.modify(|_, w| {
             w.pr1().set_bit().pr4().set_bit().pr5().set_bit()
         });
-    });
+    }
 }
 
 
 /* Set PWM channel compare register to the specified intensities */
-fn change_color(tim2: &stm32f042::TIM2, r: u8, g: u8, b: u8) {
+fn change_color(tim2: &stm32f042::tim2::RegisterBlock, r: u8, g: u8, b: u8) {
     tim2.ccr2.modify(|_, w| unsafe { w.bits(u32::from(r)) });
     tim2.ccr3.modify(|_, w| unsafe { w.bits(u32::from(g)) });
     tim2.ccr4.modify(|_, w| unsafe { w.bits(u32::from(b)) });
@@ -154,67 +154,65 @@ interrupt!(EXTI4_15, button_press);
 
 /* Handle button press or rotation of rotary encoder */
 fn button_press() {
-    cortex_m::interrupt::free(|cs| {
-        let tim2 = TIM2.borrow(cs);
-        let exti = EXTI.borrow(cs);
-        let gpioa = GPIOA.borrow(cs);
+    let tim2 = unsafe { &(*TIM2::ptr()) };
+    let exti = unsafe { &(*EXTI::ptr()) };
+    let gpioa = unsafe { &(*GPIOA::ptr()) };
 
-        let qei_state;
+    let qei_state;
 
-        /* Read out current state of QEI inputs A and B */
-        let idr = gpioa.idr.read();
-        let a = idr.idr5().bit_is_set();
-        let b = idr.idr4().bit_is_set();
+    /* Read out current state of QEI inputs A and B */
+    let idr = gpioa.idr.read();
+    let a = idr.idr5().bit_is_set();
+    let b = idr.idr4().bit_is_set();
 
-        /* Move old state in state variable to the left and add new state */
+    /* Move old state in state variable to the left and add new state */
+    unsafe {
+        QEI_STATE = (QEI_STATE & 3) << 2 | ((a as u8) << 1) | b as u8;
+        qei_state = QEI_STATE;
+    }
+
+    /* Check wheter the interrupt was caused by button press */
+    if exti.pr.read().pr1().bit_is_set() {
         unsafe {
-            QEI_STATE = (QEI_STATE & 3) << 2 | ((a as u8) << 1) | b as u8;
-            qei_state = QEI_STATE;
-        }
-
-        /* Check wheter the interrupt was caused by button press */
-        if exti.pr.read().pr1().bit_is_set() {
-            unsafe {
-                /* If so, switch controlled color component */
-                COLOR += 1;
-                if COLOR > 2 {
-                    COLOR = 0
-                }
-            };
-        }
-
-        /* Check whether old state -> new state change makes sense */
-        let dir = match qei_state & 0xf {
-            /* State changed clock-wise => we're going up */
-            0b0001 | 0b0111 | 0b1110 | 0b1000 => 1,
-
-            /* State changed counter clock-wise => we're going up */
-            0b0100 | 0b1101 | 0b1011 | 0b0010 => -1,
-
-            /* Missed a change or false reading => do nothing */
-            _ => 0,
+            /* If so, switch controlled color component */
+            COLOR += 1;
+            if COLOR > 2 {
+                COLOR = 0
+            }
         };
+    }
 
-        /* Apply rotary change to current color component */
-        if dir == 1 {
-            unsafe {
-                if RGB[COLOR] <= 254 {
-                    RGB[COLOR] += 1
-                };
-                change_color(tim2, RGB[0], RGB[1], RGB[2]);
-            }
-        } else if dir == -1 {
-            unsafe {
-                if RGB[COLOR] >= 1 {
-                    RGB[COLOR] -= 1
-                };
-                change_color(tim2, RGB[0], RGB[1], RGB[2]);
-            }
+    /* Check whether old state -> new state change makes sense */
+    let dir = match qei_state & 0xf {
+        /* State changed clock-wise => we're going up */
+        0b0001 | 0b0111 | 0b1110 | 0b1000 => 1,
+
+        /* State changed counter clock-wise => we're going up */
+        0b0100 | 0b1101 | 0b1011 | 0b0010 => -1,
+
+        /* Missed a change or false reading => do nothing */
+        _ => 0,
+    };
+
+    /* Apply rotary change to current color component */
+    if dir == 1 {
+        unsafe {
+            if RGB[COLOR] <= 254 {
+                RGB[COLOR] += 1
+            };
+            change_color(tim2, RGB[0], RGB[1], RGB[2]);
         }
+    } else if dir == -1 {
+        unsafe {
+            if RGB[COLOR] >= 1 {
+                RGB[COLOR] -= 1
+            };
+            change_color(tim2, RGB[0], RGB[1], RGB[2]);
+        }
+    }
 
-        /* Clear interrupt lines 1, 4 and 5 */
-        exti.pr.modify(|_, w| {
-            w.pr1().set_bit().pr4().set_bit().pr5().set_bit()
-        });
+    /* Clear interrupt lines 1, 4 and 5 */
+    exti.pr.modify(|_, w| {
+        w.pr1().set_bit().pr4().set_bit().pr5().set_bit()
     });
 }
