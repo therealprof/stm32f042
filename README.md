@@ -77,7 +77,7 @@ The [Black magic probe](https://1bitsquared.com/collections/frontpage/products/b
 
 It is also possible to flash the BMP software onto a cheap ST-Link v2 clone, the ST-Link on a Nucleo or Discovery board or e.g. also the Blue-Pill board, (cf. https://medium.com/@paramaggarwal/converting-an-stm32f103-board-to-a-black-magic-probe-c013cf2cc38c)
 
-The only drawback of using the BMP is that the protocol is incompatible with `lldd` so only `arm-none-eabi-gdb` (yes, that specific one!) can be used for now, e.g.:
+The only drawback of using the BMP is that the protocol is incompatible with `lldb` so only `arm-none-eabi-gdb` (yes, that specific one!) can be used for now, e.g.:
 
 ```
 # arm-none-eabi-gdb target/thumbv6m-none-eabi/release/examples/blinky
