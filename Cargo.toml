@@ -2,36 +2,28 @@
 authors = ["Daniel Egger <daniel@eggers-club.de>"]
 categories = [
     "embedded",
-    "no-std",
 ]
+description = "Peripheral access API for nRF51 microcontrollers"
+documentation = "https://docs.rs/stm32f042"
 keywords = [
+    "no-std",
     "arm",
     "cortex-m",
-    "template",
+    "stm32",
 ]
+license = "0BSD"
 name = "stm32f042"
-version = "0.4.2"
+repository = "https://github.com/therealprof/stm32f042"
+version = "0.5.0"
 
 [dependencies]
 bare-metal = "0.1.1"
-cortex-m = "0.4.1"
-numtoa = "0.0.7"
-static-ref = "0.2.1"
+cortex-m = "0.4.3"
 vcell = "0.1.0"
-volatile-register = "0.2.0"
 
 [dependencies.cortex-m-rt]
-features = ["abort-on-panic"]
-version = "0.3.12"
+optional = true
+version = "0.3.13"
 
 [features]
-default = ["rt"]
-rt = []
-[profile.dev]
-debug = true
-lto = true
-
-[profile.release]
-debug = true
-lto = true
-opt-level = "s"
+rt = ["cortex-m-rt"]
