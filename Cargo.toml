@@ -3,7 +3,7 @@ authors = ["Daniel Egger <daniel@eggers-club.de>"]
 categories = [
     "embedded",
 ]
-description = "Peripheral access API for nRF51 microcontrollers"
+description = "Peripheral access API for STM32F042 microcontrollers"
 documentation = "https://docs.rs/stm32f042"
 keywords = [
     "no-std",
