@@ -1,8 +1,6 @@
 [package]
 authors = ["Daniel Egger <daniel@eggers-club.de>"]
-categories = [
-    "embedded",
-]
+categories = ["embedded"]
 description = "Peripheral access API for STM32F042 microcontrollers"
 documentation = "https://docs.rs/stm32f042"
 keywords = [
@@ -14,7 +12,7 @@ keywords = [
 license = "0BSD"
 name = "stm32f042"
 repository = "https://github.com/therealprof/stm32f042"
-version = "0.5.0"
+version = "0.5.1"
 
 [dependencies]
 bare-metal = "0.1.1"
@@ -22,8 +20,17 @@ cortex-m = "0.4.3"
 vcell = "0.1.0"
 
 [dependencies.cortex-m-rt]
-optional = true
+features = ["abort-on-panic"]
 version = "0.3.13"
 
 [features]
-rt = ["cortex-m-rt"]
+default = ["rt"]
+rt = []
+[profile.dev]
+codegen-units = 1
+incremental = false
+
+[profile.release]
+debug = true
+lto = true
+opt-level = "s"
