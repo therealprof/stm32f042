@@ -4,6 +4,7 @@
 
 use core::cell::RefCell;
 
+extern crate panic_abort;
 extern crate cortex_m;
 
 use cortex_m::interrupt::Mutex;

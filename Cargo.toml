@@ -12,16 +12,14 @@ keywords = [
 license = "0BSD"
 name = "stm32f042"
 repository = "https://github.com/therealprof/stm32f042"
-version = "0.5.2"
+version = "0.5.3"
 
 [dependencies]
-bare-metal = "0.1.1"
+bare-metal = "0.1.2"
 cortex-m = "0.4.3"
+cortex-m-rt = "0.4.0"
+panic-abort = "0.1.1"
 vcell = "0.1.0"
-
-[dependencies.cortex-m-rt]
-features = ["abort-on-panic"]
-version = "0.3.15"
 
 [features]
 default = ["rt"]
