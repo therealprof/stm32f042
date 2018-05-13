@@ -1,21 +1,37 @@
 #![feature(used)]
-#![feature(const_fn)]
+#![no_main]
 #![no_std]
 
 use core::cell::RefCell;
 
-extern crate panic_abort;
+#[macro_use(entry, exception)]
+extern crate cortex_m_rt;
+
+use cortex_m_rt::ExceptionFrame;
+
 extern crate cortex_m;
+extern crate panic_abort;
 
 use cortex_m::interrupt::Mutex;
 use cortex_m::peripheral::syst::*;
 
-#[macro_use(exception)]
 extern crate stm32f042;
 
 static GPIOA: Mutex<RefCell<Option<stm32f042::GPIOA>>> = Mutex::new(RefCell::new(None));
 
-fn main() {
+exception!(*, default_handler);
+
+fn default_handler(_irqn: i16) {}
+
+exception!(HardFault, hard_fault);
+
+fn hard_fault(_ef: &ExceptionFrame) -> ! {
+    loop {}
+}
+
+entry!(main);
+
+fn main() -> ! {
     if let (Some(cp), Some(p)) = (
         cortex_m::Peripherals::take(),
         stm32f042::Peripherals::take(),
@@ -86,31 +102,31 @@ fn main() {
         /* Start interrupt generation */
         syst.enable_interrupt();
     }
+
+    loop {}
 }
 
 /* Define an exception, i.e. function to call when exception occurs. Here if our SysTick timer
  * trips the flash function will be called and the specified stated passed in via argument */
-exception!(SYS_TICK, flash, locals: {
-    state: u8 = 1;
-});
+exception!(SysTick, flash, state: u8 = 1);
 
-fn flash(l: &mut SYS_TICK::Locals) {
+fn flash(state: &mut u8) {
     /* Enter critical section */
     cortex_m::interrupt::free(|cs| {
         if let Some(gpioa) = GPIOA.borrow(cs).borrow().as_ref() {
             /* Check state variable, keep LED off most of the time and turn it on every 10th tick */
-            if l.state < 10 {
+            if *state < 10 {
                 /* If set turn off the LED */
                 gpioa.brr.write(|w| w.br1().set_bit());
 
                 /* And now increment state variable */
-                l.state += 1;
+                *state += 1;
             } else {
                 /* If not set, turn on the LED */
                 gpioa.bsrr.write(|w| w.bs1().set_bit());
 
                 /* And set new state variable back to 0 */
-                l.state = 1;
+                *state = 1;
             }
         }
     });
