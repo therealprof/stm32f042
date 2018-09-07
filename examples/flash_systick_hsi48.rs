@@ -1,36 +1,22 @@
-#![feature(used)]
 #![no_main]
 #![no_std]
 
 use core::cell::RefCell;
 
-#[macro_use(entry, exception)]
 extern crate cortex_m_rt;
-
-use cortex_m_rt::ExceptionFrame;
-
 extern crate cortex_m;
 extern crate panic_abort;
 
 use cortex_m::interrupt::Mutex;
 use cortex_m::peripheral::syst::*;
 
+use cortex_m_rt::{entry, exception};
+
 extern crate stm32f042;
 
 static GPIOA: Mutex<RefCell<Option<stm32f042::GPIOA>>> = Mutex::new(RefCell::new(None));
 
-exception!(*, default_handler);
-
-fn default_handler(_irqn: i16) {}
-
-exception!(HardFault, hard_fault);
-
-fn hard_fault(_ef: &ExceptionFrame) -> ! {
-    loop {}
-}
-
-entry!(main);
-
+#[entry]
 fn main() -> ! {
     if let (Some(cp), Some(p)) = (
         cortex_m::Peripherals::take(),
@@ -108,9 +94,9 @@ fn main() -> ! {
 
 /* Define an exception, i.e. function to call when exception occurs. Here if our SysTick timer
  * trips the flash function will be called and the specified stated passed in via argument */
-exception!(SysTick, flash, state: u8 = 1);
-
-fn flash(state: &mut u8) {
+#[exception]
+fn SysTick() -> ! {
+    static mut state : u8 = 1;
     /* Enter critical section */
     cortex_m::interrupt::free(|cs| {
         if let Some(gpioa) = GPIOA.borrow(cs).borrow().as_ref() {

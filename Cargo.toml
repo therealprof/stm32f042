@@ -12,7 +12,7 @@ keywords = [
 license = "0BSD"
 name = "stm32f042"
 repository = "https://github.com/therealprof/stm32f042"
-version = "0.6.2"
+version = "0.6.3"
 
 [dependencies]
 cortex-m = "0.5.7"

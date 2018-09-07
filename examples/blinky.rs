@@ -1,29 +1,14 @@
-#![feature(used)]
 #![no_main]
 #![no_std]
 
-#[macro_use(entry, exception)]
 extern crate cortex_m_rt;
-
 extern crate panic_abort;
-
 extern crate cortex_m;
 extern crate stm32f042;
 
-use cortex_m_rt::ExceptionFrame;
+use cortex_m_rt::entry;
 
-exception!(*, default_handler);
-
-fn default_handler(_irqn: i16) {}
-
-exception!(HardFault, hard_fault);
-
-fn hard_fault(_ef: &ExceptionFrame) -> ! {
-    loop {}
-}
-
-entry!(main);
-
+#[entry]
 fn main() -> ! {
     if let Some(p) = stm32f042::Peripherals::take() {
         let rcc = p.RCC;
